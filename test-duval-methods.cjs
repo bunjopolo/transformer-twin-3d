@@ -68,9 +68,20 @@ assert.equal(d.dgaSeries(rows({H2:50,CH4:76,C2H4:20,C2H2:4,C2H6:8}),mapping,'t4'
 const ctx=vm.createContext({Date,structuredClone,setTimeout,clearTimeout,clearInterval,console,localStorage:{getItem:()=>null,setItem:()=>{}}});
 for(const f of ['tag-catalog','smartsignal','duval','dga'])vm.runInContext(fs.readFileSync(`dist/${f}.js`,'utf8'),ctx);
 const app=fs.readFileSync('dist/app.js','utf8');vm.runInContext(app.slice(0,app.lastIndexOf("document.querySelectorAll('.nav')")),ctx);
-for(const [id,context] of [...definitions,['p1','mineral'],['p2','mineral']]){
-  vm.runInContext(`dgaMethodId=${JSON.stringify(id)};dgaContext=${JSON.stringify(id==='t2'?'ltc':context)};`,ctx);
-  const html=vm.runInContext('dgaFrame(dgaModel())',ctx);assert.ok(html.includes('Duval '+(id[0]==='p'?'Pentagon':'Triangle')+' '+id[1]));assert.ok(!html.includes('NaN'));assert.ok(!html.includes('undefined'));
-}
-vm.runInContext("dgaContext='fr3';dgaReset()",ctx);assert.equal(vm.runInContext('dgaContext',ctx),'mineral','new import resets sample context');
+const run=source=>vm.runInContext(source,ctx);
+const html=run('dgaFrame(dgaModel())');
+for(const id of ['t1','t2','t4','t5','p1','p2',...Object.keys(d.DUVAL_FLUIDS).map(f=>'t3-'+f)])assert.ok(html.includes(`data-duval-card="${id}"`),id);
+assert.equal((html.match(/class="duval-svg"/g)||[]).length,10,'all diagrams render together');
+assert.ok(!html.includes('NaN'));assert.ok(!html.includes('undefined'));
+assert.ok(html.includes('Comparison reference'));assert.ok(html.includes('conventional oil-arcing LTC'));
+assert.ok(!run('dgaPage()').includes('id="dga-method"'));assert.ok(!run('dgaPage()').includes('Imported sample source'));
+run('dgaTime=dgaModel().start');assert.ok(run('dgaModel().views.every(v=>v.sample.time===dgaTime)'));
+run('dgaTime+=1800000');assert.ok(run('dgaModel().views.every(v=>v.sample.time===dgaTime-1800000)'));
+assert.ok(run('dgaModel().views[0].series===dgaModel().views[0].series'),'replay reuses classification series');
+run('dgaTime=dgaModel().end;data.sensors=[...data.sensors,{...data.sensors.find(r=>r.tag===dgaMapping()["DGA-H2"]),timestamp:new Date(dgaTime+3600000).toISOString(),actual:50}];dgaTime=null');
+assert.ok(run('dgaModel().views.filter(v=>["t4","p1","p2"].includes(v.id)).every(v=>!v.sample.valid)'),'incomplete newer H2 sample clears affected charts');
+assert.ok(run('dgaModel().views.find(v=>v.id==="t1").sample.valid'),'irrelevant gas does not invalidate Triangle 1');
+run('data.dgaMappings={...dgaMapping(),"DGA-C2H6":""}');
+assert.ok(run('dgaModel().views.filter(v=>["t4","t5","p1","p2"].includes(v.id)).every(v=>v.series.length===0)'),'mapping changes invalidate cached results');
+run('dgaReset()');assert.equal(run('dgaTime'),null);assert.equal(run('dgaSeriesCache'),null);
 console.log(`PASS: ${checked} lattice compositions, 280 independent workbook fixtures, 29 published correction cases, pentagon centroids, all fluid variants, applicability, missing/duplicate data and UI rendering.`);

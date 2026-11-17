@@ -53,7 +53,7 @@ function indicatorBadge(r, diagnostic=false) {
   const key=diagnostic?'diagnosticAdvisoryIndication':'advisoryIndication';
   const active=r[diagnostic?'diagnosticActive':'advisoryActive'];
   if(!(key in r))return '<span class="muted">Not supplied</span>';
-  if(r.indicationMode==='text')return active===true?`<span class="source-indication advisory-text">${esc(r[key]??'')}</span>`:`<span class="muted">${active===false?'None supplied':'Not supplied'}</span>`;
+  if(r.indicationMode==='text')return String(r[key]??'').trim()?`<span class="source-indication advisory-text">${esc(r[key]??'')}</span>`:`<span class="muted">${active===false?'None supplied':'Not supplied'}</span>`;
   return `${badge(active===true?'watch':active===false?'normal':'unknown',active===true?'Active':active===false?'Clear':'Unknown')}<small class="source-indication">Source: ${esc(String(r[key]??'').trim()||'(blank)')}</small>`;
 }
 function smartDate(value, config) {

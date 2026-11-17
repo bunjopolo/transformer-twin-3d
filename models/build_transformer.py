@@ -18,13 +18,13 @@ def material(name, color, metal=0, rough=.5):
     bs.inputs['Metallic'].default_value = metal
     bs.inputs['Roughness'].default_value = rough
     return m
-paint = material('Sage enamel', (.43,.55,.49), .35, .38)
-edge = material('Dark hardware', (.16,.23,.21), .65, .35)
-porcelain = material('Porcelain', (.64,.69,.61), .1, .27)
-copper = material('Copper windings', (.63,.29,.12), .7, .3)
-steel = material('Laminated core', (.25,.29,.28), .65, .4)
-base = material('Concrete plinth', (.64,.67,.63), 0, .95)
-label = material('Nameplate', (.76,.79,.73), .45, .3)
+paint = material('Machined grey enamel', (.36,.40,.44), .2, .65)
+edge = material('Dark hardware', (.12,.15,.18), .35, .6)
+porcelain = material('Porcelain', (.56,.59,.61), .05, .5)
+copper = material('Copper windings', (.38,.23,.14), .35, .6)
+steel = material('Laminated core', (.20,.23,.27), .3, .65)
+base = material('Concrete plinth', (.60,.62,.64), 0, .95)
+label = material('Nameplate', (.55,.58,.61), .3, .6)
 groups = {}
 for key in ['tank','windings','bushings','cooling','conservator','tapchanger','foundation']:
     obj = bpy.data.objects.new(key, None)
@@ -37,14 +37,14 @@ def finish(obj, name, mat, group, bevel=0):
     obj.data.materials.append(mat)
     obj.parent = groups[group]
     if bevel:
-        mod = obj.modifiers.new('Soft manufactured edges','BEVEL'); mod.width=bevel; mod.segments=3
+        mod = obj.modifiers.new('Soft manufactured edges','BEVEL'); mod.width=bevel; mod.segments=1
         bpy.context.view_layer.objects.active=obj
         bpy.ops.object.modifier_apply(modifier=mod.name)
     if obj.type == 'MESH':
         for p in obj.data.polygons: p.use_smooth = False
     return obj
 
-def box(name, loc, size, mat=paint, group='tank', bevel=.035):
+def box(name, loc, size, mat=paint, group='tank', bevel=.008):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     o=bpy.context.object; o.dimensions=size
     bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
@@ -55,7 +55,7 @@ def cyl(name, loc, radius, depth, mat=paint, group='tank', axis='z', vertices=32
     o=bpy.context.object
     if axis=='x': o.rotation_euler[1]=math.pi/2
     if axis=='y': o.rotation_euler[0]=math.pi/2
-    finish(o,name,mat,group,.015)
+    finish(o,name,mat,group,.004)
     for p in o.data.polygons: p.use_smooth = len(p.vertices)==4
     return o
 
@@ -65,7 +65,7 @@ def pipe(name, a, b, radius=.07, group='cooling', mat=paint):
     o.rotation_euler=(b-a).to_track_quat('Z','Y').to_euler()
     return o
 
-box('Concrete base',(-.7,0,-.12),(7.6,3.5,.24),base,'foundation',.08)
+box('Concrete base',(-.7,0,-.12),(7.6,3.5,.24),base,'foundation',.015)
 for x in [-1.55,1.55]: box('Tank skid',(x,0,.12),(.24,2.7,.24),edge,'foundation')
 box('Tank floor',(0,0,.35),(4.25,2.25,.18))
 box('Front removable panel',(0,-1.1,1.72),(4.2,.12,2.6))
@@ -75,7 +75,7 @@ box('Removable tank lid',(0,0,3.08),(4.45,2.45,.15))
 for x in [-1.9,-1.4,-.9,-.4,.1,.6,1.1,1.6,1.95]:
     for y in [-1.13,1.13]:
         box('Tank stiffener',(x,y,1.7),(.065,.11,2.35),paint)
-        cyl('Lid bolt',(x,y,3.18),.04,.06,edge)
+        cyl('Lid bolt',(x,y,3.18),.04,.06,edge,vertices=6)
 box('Asset plate',(1,-1.177,2.1),(.65,.025,.35),label)
 for x in [-1.2,1.2]:
     cyl('Lifting lug',(x,0,3.25),.12,.12,edge,'tank','y')
@@ -116,8 +116,16 @@ box('Tap drive door',(2.7,0,1.65),(.04,.87,1.35),label,'tapchanger')
 box('Door handle',(2.74,-.28,1.6),(.04,.06,.25),edge,'tapchanger')
 cyl('Tap position dial',(2.74,.05,1.96),.14,.03,edge,'tapchanger','x')
 pipe('Tap drive conduit',(2.35,0,2.4),(2.35,0,3.1),.05,'tapchanger')
+# Removal membership is part of the model, not inferred from sanitized web names.
+# The top-mounted functional components remain in position for inspection.
+for obj in bpy.context.scene.objects:
+    if obj.type != 'MESH':
+        continue
+    if obj.name.startswith(('Front removable panel', 'Removable tank lid', 'Lid bolt', 'Lifting lug', 'Asset plate')) or (obj.name.startswith('Tank stiffener') and obj.location.y < 0):
+        obj['hideInCutaway'] = True
 # Save an editable source and a portable model with stable component extras.
 bpy.ops.object.select_all(action='SELECT')
+bpy.context.preferences.filepaths.save_version = 0
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'models/transformer.blend'))
 bpy.ops.export_scene.gltf(filepath=str(ROOT/'dist/models/transformer.glb'),export_format='GLB',export_extras=True,export_apply=True)
 print('Transformer model exported')

@@ -13,3 +13,27 @@ for(const file of ['three.module.js','three.core.js','GLTFLoader.js','OrbitContr
 }
 assert.ok(fs.existsSync('models/transformer.blend'));
 console.log('PASS: GLB integrity, six component mappings, cutaway surfaces, editable source and local module dependencies.');
+const removed=gltf.nodes.filter(n=>n.extras?.hideInCutaway===true);
+for(const prefix of ['Lid bolt','Lifting lug','Removable tank lid','Front removable panel','Asset plate']){
+ const parts=gltf.nodes.filter(n=>n.name.startsWith(prefix));assert.ok(parts.length>0,prefix+' exists');
+ for(const part of parts)assert.ok(removed.includes(part),part.name+' disappears with the cutaway assembly');
+}
+assert.equal(gltf.nodes.filter(n=>n.name.startsWith('Tank stiffener')&&n.extras?.hideInCutaway).length,9,'Only front stiffeners are removed');
+(async()=>{
+ const {firstVisibleComponent,selectionGesture}=await import('./dist/model-selection.mjs');
+ const statuses={tank:'normal',windings:'watch',cooling:'watch',bushings:'normal',conservator:'normal',tapchanger:'normal'};
+ const mesh=(id,visible=true)=>({isMesh:true,visible,userData:{},parent:{visible:true,userData:{component:id}}});
+ for(const id of Object.keys(statuses))assert.equal(firstVisibleComponent([{object:mesh(id)}],statuses),id,'Direct mesh selection: '+id);
+ assert.equal(firstVisibleComponent([{object:mesh('tank',false)},{object:mesh('windings')}],statuses),'windings','Hidden panel does not intercept winding click');
+ const hiddenParent=mesh('tank');hiddenParent.parent.visible=false;
+ assert.equal(firstVisibleComponent([{object:hiddenParent},{object:mesh('cooling')}],statuses),'cooling','Hidden parent does not intercept click');
+ assert.equal(firstVisibleComponent([{object:mesh('foundation')},{object:mesh('windings')}],statuses),null,'Opaque plinth occludes parts behind it');
+ const e=(x,y,id=1,button=0)=>({clientX:x,clientY:y,pointerId:id,button});const g=selectionGesture();
+ g.down(e(10,10));assert.equal(g.up(e(12,11)),true,'Small tap jitter selects');
+ g.down(e(10,10));g.move(e(30,10));assert.equal(g.up(e(10,10)),false,'Drag returning to its origin does not select');
+ g.down(e(10,10));assert.equal(g.up(e(40,10)),false,'Pointerup displacement alone does not select');
+ g.down(e(10,10));g.down(e(20,20,2));assert.equal(g.up(e(20,20,2)),false);assert.equal(g.up(e(10,10)),false,'Pinch never selects');
+ g.down(e(10,10));g.clear();assert.equal(g.up(e(10,10)),false,'Cancelled gesture never selects');
+ g.down(e(10,10,1,2));assert.equal(g.up(e(10,10,1,2)),false,'Right click never selects');
+ console.log('PASS: cutaway hardware membership, direct selection for six components, hidden geometry, occlusion, click/drag/pinch/cancel behavior.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

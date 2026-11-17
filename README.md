@@ -40,3 +40,15 @@ Zone geometry: [International Journal of Electrical and Power Engineering 4(3), 
 DGA monitoring displays Triangles 1, 4 and 5 and Pentagons 1 and 2 together for the mineral-oil main transformer tank, with a shared gas concentration strip and replay clock. There is no diagram or sample-source selector. Tap-changer and alternative-fluid comparisons are omitted from this asset dashboard. Triangles 4/5 require applicable, simultaneous Triangle 1 results. Every chart shows its own sample timestamp, region, percentages and history. Classification series are cached between replay ticks and invalidated when imported data or tag mappings change.
 
 See [DUVAL-METHODS.md](DUVAL-METHODS.md) for source editions, source inconsistencies, applicability, zero/detection-limit handling and verification. Run `node test-duval-methods.cjs` in addition to the existing tests. The implementation uses the IEEE-distributed 2016 workbook edition and explicitly reports shared boundaries. It does not claim to implement every proposed later revision.
+
+## Interactive 3D branch
+
+`codex/interactive-3d` adds a local, Blender-authored GLB model with six selectable component groups. Drag to orbit, scroll/pinch or use +/− to zoom, and click a visible part or component button to select it. Arrow keys rotate the focused canvas; Home resets the view. Cutaway removes the front wall and lid to reveal the core and windings. Selecting the windings opens the cutaway. The camera survives component selection, snapshot updates and page navigation. A 2D view remains available when WebGL is unsupported.
+
+Both views call the same component selection function and use the same snapshots, source advisories, trends, imports, maintenance records and DGA pages. Amber tint indicates supplied source advisory text, not inferred equipment health. Geometry is illustrative and is not a dimensionally accurate reconstruction of the installed unit.
+
+Editable source: `models/transformer.blend`. Regenerate both source and web asset with `/Applications/Blender.app/Contents/MacOS/Blender --background --python models/build_transformer.py`. The script runs in a separate Blender process. Component IDs live on parent objects as glTF extras; preserve them when editing. The browser loads `dist/models/transformer.glb`; all Three.js 0.180.0 modules are vendored locally with their MIT license.
+
+Run locally: `python3 -m http.server 4174 --bind 127.0.0.1 --directory dist`, then visit http://127.0.0.1:4174. This branch has not been deployed to the existing Site. Browser-local storage is scoped to its preview origin; import or restore a backup there to use an existing dataset.
+
+Validation: the four original regression suites plus `node test-3d.cjs`. Browser checks cover model loading, direct mesh selection, rotation, cutaway, zoom, component details/maintenance and switching between 2D/3D.

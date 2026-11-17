@@ -1,6 +1,6 @@
 'use strict';
 const DGA_CATALOG=TAG_CATALOG.filter(r=>r[6].startsWith('DGA'));
-let dgaTime=null,dgaPlaying=false,dgaSpeed=3600,dgaTimer=null,dgaLastTick=0,dgaTrend='DGA-CH4';
+let dgaTime=null,dgaPlaying=false,dgaSpeed=3600,dgaTimer=null,dgaLastTick=0,dgaTrend='DGA-CH4',dgaControlsOpen=false;
 function dgaMapping(){
   const tags=new Map();for(const r of data.sensors)tags.set(r.tag,r);
   return Object.fromEntries(DGA_CATALOG.map(c=>{
@@ -32,11 +32,15 @@ function dgaToggle(){
   dgaRefresh();
 }
 function dgaTimestamp(t){return Number.isFinite(t)?new Date(t).toISOString().replace('T',' ').slice(0,19)+' UTC':'No samples';}
+function dgaControls(){
+  const m=dgaModel();
+  return `<details id="dga-demo-details" ${dgaControlsOpen?'open':''}><summary>Demo controls</summary><div class="dga-demo-body"><div class="dga-controls"><button class="btn" id="dga-play" ${m.times.length<2?'disabled':''}>▶ Play</button><button class="btn" id="dga-restart" aria-label="Restart playback" ${!m.times.length?'disabled':''}>↶ Restart</button><label>Speed <select id="dga-speed" aria-label="Playback speed">${[[1,'1× · Real time'],[10,'10×'],[60,'60× · 1 min / sec'],[600,'600× · 10 min / sec'],[3600,'3,600× · 1 hour / sec'],[86400,'86,400× · 1 day / sec']].map(([v,l])=>`<option value="${v}" ${dgaSpeed===v?'selected':''}>${l}</option>`).join('')}</select></label><span id="dga-clock" class="table-tag" aria-live="off"></span><span id="dga-play-state" class="badge unknown"></span></div><label class="dga-scrubber">Replay position<input type="range" id="dga-scrub" aria-label="Replay position" min="${m.start||0}" max="${m.end||1}" step="1" value="${dgaTime||0}" ${m.times.length<2?'disabled':''}></label></div></details>`;
+}
 function dgaPage(){
   const m=dgaModel();
   return heading('DGA monitoring','Transformer 4 · Phase A · Dissolved gas analysis',`<button class="btn primary" data-action="imports">↥ &nbsp; Import workbook</button>`)+
   `<div class="source-strip"><strong>${data.demo?'DEMONSTRATION DATA':'WORKBOOK REPLAY'} · ${esc(data.source||'Imported readings')}</strong><span>Playback of recorded measurements · No live connection</span></div>
-  <section class="panel dga-playback"><div class="dga-controls"><button class="btn primary" id="dga-play" ${m.times.length<2?'disabled':''}>▶ Play</button><button class="btn" id="dga-restart" aria-label="Restart playback" ${!m.times.length?'disabled':''}>↶ Restart</button><label>Speed <select id="dga-speed" aria-label="Playback speed">${[[1,'1× · Real time'],[10,'10×'],[60,'60× · 1 min / sec'],[600,'600× · 10 min / sec'],[3600,'3,600× · 1 hour / sec'],[86400,'86,400× · 1 day / sec']].map(([v,l])=>`<option value="${v}" ${dgaSpeed===v?'selected':''}>${l}</option>`).join('')}</select></label><span id="dga-clock" class="table-tag" aria-live="off"></span><span id="dga-play-state" class="badge unknown"></span></div><label class="dga-scrubber">Replay position<input type="range" id="dga-scrub" aria-label="Replay position" min="${m.start||0}" max="${m.end||1}" step="1" value="${dgaTime||0}" ${m.times.length<2?'disabled':''}></label><div class="dga-time-ends"><span>${dgaTimestamp(m.start)}</span><span>${dgaTimestamp(m.end)}</span></div><p class="sub">Values advance when the next recorded sample arrives. No interpolation between measurements.</p></section>
+
   <div id="dga-frame"></div>
   <details class="panel dga-mapping"><summary>Gas tag mapping <span class="muted">${Object.values(m.mapping).filter(Boolean).length} / ${DGA_CATALOG.length} channels assigned</span></summary><p class="sub">Assign workbook tags to the gas channels. Use concentration tags in ppm for the triangle; rate-of-change tags are separate.</p><div class="mapping">${DGA_CATALOG.map(c=>`<label>${esc(c[1])}<select data-dga-map="${c[0]}" aria-label="${esc(c[1])} tag"><option value="">Not mapped</option>${[...new Map(data.sensors.map(r=>[r.tag,r])).values()].map(r=>`<option value="${esc(r.tag)}" ${m.mapping[c[0]]===r.tag?'selected':''}>${esc(r.tag)} · ${esc(r.name||r.tag)} (${esc(r.unit||'no unit')})</option>`).join('')}</select></label>`).join('')}</div></details>`;
 }
@@ -86,7 +90,11 @@ function dgaRefresh(){
   $('#dga-trend').onchange=e=>{dgaTrend=e.target.value;dgaRefresh();};
 }
 function bindDga(){
-  if(page!=='dga')return;
+  const controls=$('#dga-demo');
+  controls.hidden=page!=='dga';
+  if(page!=='dga'){controls.innerHTML='';return;}
+  controls.innerHTML=dgaControls();
+  $('#dga-demo-details').ontoggle=e=>{dgaControlsOpen=e.target.open;};
   dgaRefresh();$('#dga-play').onclick=dgaToggle;
   $('#dga-restart').onclick=()=>{dgaStop();dgaTime=dgaModel().start;dgaRefresh();};
   $('#dga-speed').onchange=e=>{if(dgaPlaying)dgaTick();dgaSpeed=Number(e.target.value);dgaLastTick=performance.now();};

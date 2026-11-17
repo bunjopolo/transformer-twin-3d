@@ -26,7 +26,7 @@ const run=s=>vm.runInContext(s,ctx);
 assert.equal(run('Object.values(dgaMapping()).filter(Boolean).length'),16);
 assert.equal(run('dgaModel().series.length'),25);
 assert.equal(run('dgaModel().sample.zones[0]'),'T2');
-assert.ok(run('dgaPage().includes("Replay position")'));
+assert.ok(run('dgaControls().includes("Replay position")'));
 assert.ok(run('dgaFrame(dgaModel()).includes("All DGA monitors")'));
 run('dgaTime=dgaModel().start');assert.equal(run('dgaModel().sample.time'),run('dgaTime'));
 run('dgaTime+=1800000');assert.equal(run('dgaModel().sample.time'),run('dgaTime-1800000'));

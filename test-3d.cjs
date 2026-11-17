@@ -37,3 +37,17 @@ assert.equal(gltf.nodes.filter(n=>n.name.startsWith('Tank stiffener')&&n.extras?
  g.down(e(10,10,1,2));assert.equal(g.up(e(10,10,1,2)),false,'Right click never selects');
  console.log('PASS: cutaway hardware membership, direct selection for six components, hidden geometry, occlusion, click/drag/pinch/cancel behavior.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+const terminalNodes=gltf.nodes.filter(n=>n.extras?.terminalId);
+assert.deepEqual(terminalNodes.map(n=>n.extras.terminalId).sort(),['H1','H2','X1','X2']);
+const bushingRoot=gltf.nodes.find(n=>n.extras?.component==='bushings');
+for(const terminal of terminalNodes){
+ assert.equal(terminal.extras.voltageSide,terminal.extras.terminalId.startsWith('H')?'HV':'LV');
+ assert.ok(bushingRoot.children.includes(gltf.nodes.indexOf(terminal)),'All terminals retain the bushings component mapping');
+ const children=terminal.children.map(i=>gltf.nodes[i]);
+ assert.equal(children.filter(n=>n.name.startsWith('Porcelain stem')).length,1);
+ assert.equal(children.filter(n=>n.name.startsWith('Terminal contact')).length,1);
+ assert.ok(children.some(n=>n.name.startsWith(terminal.extras.terminalId+' terminal marking')),'Visible terminal ID');
+}
+assert.equal(terminalNodes.filter(n=>n.extras.voltageSide==='HV').length,2);
+assert.equal(terminalNodes.filter(n=>n.extras.voltageSide==='LV').length,2);
+console.log('PASS: single-phase H1/H2 HV and X1/X2 LV terminal pairs, visible IDs and preserved component ancestry.');

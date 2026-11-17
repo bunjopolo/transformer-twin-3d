@@ -22,3 +22,5 @@ const escaped=run("modelHoverCard('cooling')");assert.ok(escaped.includes('&lt;s
 run("component='cooling'");assert.ok(run('componentReadings()').includes('data-model-tag="&lt;img'));
 run("stamp='2026-11-16T09:00:00.000Z'");assert.ok(run("modelHoverCard('bushings')").includes('No mapped readings'));
 console.log('PASS: model hover/demo readings, actual values/units/timestamps, historical cutoffs, custom component mappings, missing data, zero values, full tag lists and escaped imports.');
+assert.equal(run("normalizeComponent('HV bushings')"),'bushings','Legacy import label remains supported');
+assert.equal(run("normalizeComponent('HV / LV bushings')"),'bushings');

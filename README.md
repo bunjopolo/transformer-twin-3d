@@ -60,3 +60,9 @@ Hover over a model part to see up to three assigned tags with actual values, uni
 The current winding catalog includes generator voltage, generator current and Phase A winding temperature. These are component-level tags, not separate HV/LV-coil measurements; generator voltage is not relabelled as an HV-coil measurement. Cooling has inlet temperature and water flow; the tank has oil/gas concentrations and gas rates. Imported custom tags follow their assigned component. No new readings are simulated and no live connection is implied. Historical snapshots use the latest available reading at or before the selected time, preserving each tag's own sample timestamp.
 
 Additional regression suite: `node test-model-tags.cjs` covers snapshot cutoffs, custom mappings, zero/missing readings, missing units, all-tag access and escaped import content. Browser verification covers readout rendering, historical-value changes and tag-to-trend navigation.
+
+### Single-phase terminal arrangement
+
+The illustrative model now has two tall high-voltage bushings marked H1/H2 and two shorter low-voltage bushings marked X1/X2, rather than an ambiguous three-terminal arrangement. The 2D fallback uses the same terminal pairs. Each terminal is a named child of the existing `bushings` component, with `terminalId` and `voltageSide` glTF extras; tag mappings, hover readings and component selection remain shared. Older imports using the label “HV bushings” are still accepted.
+
+This is a generic single-phase two-winding arrangement, not a confirmed as-built terminal/neutral arrangement for the installed Federal Pioneer unit. Terminal convention reference: [Hammond Power Solutions — subtractive polarity](https://americas.hammondpowersolutions.com/resources/faq/definition/what-is-subtractive-polarity). The GLB regression check verifies exactly H1/H2 as HV and X1/X2 as LV, their visible markings and their component ancestry.

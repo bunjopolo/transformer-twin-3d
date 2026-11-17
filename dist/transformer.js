@@ -12,10 +12,10 @@ function transformerDiagram() {
     const [px,py]=project(...xyz),end=side==='right'?x-10:x+132;
     return group(id,`<path d="M${px} ${py}H${end- (side==='right'?16:-16)}L${end} ${y-4}H${side==='right'?x-5:x+126}" fill="none" stroke="#afbbb3" stroke-width="1"/>${marker(px,py)}<text x="${x}" y="${y}" class="equipment-label">${text}</text>`);
   };
-  const bushing=(x,y,h)=>{
+  const bushing=(x,y,h,terminal)=>{
     const [px,py]=project(x,y,151);
     const ribs=Array.from({length:Math.floor((h-13)/7)},(_,i)=>{const cy=-12-i*7,r=14-i*.27;return `<ellipse cx="0" cy="${cy}" rx="${r}" ry="3.5" fill="#b6c2b9" stroke="#71867a" stroke-width=".85"/>`;}).join('');
-    return `<g transform="translate(${px} ${py})"><ellipse cx="0" cy="3" rx="19" ry="6" fill="#d6dfd8" stroke="#83968d"/><path d="M-6 0V-${h}H6V0" fill="#abbab0" stroke="#71867a"/>${ribs}<rect x="-3" y="-${h+10}" width="6" height="13" rx="1" fill="#71867a"/></g>`;
+    return `<g transform="translate(${px} ${py})"><ellipse cx="0" cy="3" rx="19" ry="6" fill="#d6dfd8" stroke="#83968d"/><path d="M-6 0V-${h}H6V0" fill="#abbab0" stroke="#71867a"/>${ribs}<text x="0" y="21" text-anchor="middle" font-size="9" fill="#3d5148">${terminal}</text><rect x="-3" y="-${h+10}" width="6" height="13" rx="1" fill="#71867a"/></g>`;
   };
   const coils=Array.from({length:11},(_,i)=>`<ellipse cx="52" cy="${-47-i*5}" rx="11" ry="3"/><ellipse cx="88" cy="${-47-i*5}" rx="11" ry="3"/>`).join('');
   const cylinder=(x,y,z,length,radius)=>{
@@ -33,7 +33,7 @@ function transformerDiagram() {
     ${group('tank',box(0,0,6,210,110,138)+box(-5,-5,144,220,120,7)+Array.from({length:5},(_,i)=>line([[111+i*18,0,22],[111+i*18,0,131]],'#a8b9ae',3)).join('')+line([[210,22,22],[210,22,132]],'#9eb2a4',3)+line([[210,87,22],[210,87,132]],'#9eb2a4',3))}
     ${group('windings',`<g transform="matrix(.86 .28 0 1 300 296)"><rect class="part-shape" x="26" y="-124" width="88" height="99" rx="4" fill="#e9eee3" fill-opacity=".88" stroke="#a2b19c" stroke-width="1.2" stroke-dasharray="4 4"/><path d="M39 -40V-107h62v67H39Z" fill="none" stroke="#b1bba8" stroke-width="7"/><g stroke="#8d9f80" stroke-width="1.3" fill="#d6dfc9">${coils}</g></g>`)}
     ${group('conservator',box(24,62,151,9,16,30,'')+box(85,62,151,9,16,30,'')+cylinder(9,70,200,96,19))}
-    ${group('bushings',bushing(124,80,75)+bushing(179,80,75)+bushing(82,18,43))}
+    ${group('bushings',bushing(124,80,75,'H1')+bushing(179,80,75,'H2')+bushing(70,10,38,'X1')+bushing(140,10,38,'X2'))}
     ${group('tapchanger',box(210,24,43,33,49,73)+poly([[244,33,60],[244,63,60],[244,63,98],[244,33,98]],'#d5dfd5')+line([[244,39,78],[244,47,78]],'#738b79',2))}
     ${group('cooling',
       box(-154,8,-7,13,37,19,'')+box(-91,8,-7,13,37,19,'')+

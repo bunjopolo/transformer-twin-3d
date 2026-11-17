@@ -104,7 +104,7 @@ function initialize(){
   });
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();failed=true;message('3D graphics paused. Reload to retry, or use the 2D view.');});
   observer=new ResizeObserver(resize);
-  new GLTFLoader().load('./models/transformer.glb?v=cad2',gltf=>{
+  new GLTFLoader().load('./models/transformer.glb?v=singlephase1',gltf=>{
     model=gltf.scene;
     const meshes=[];model.traverse(obj=>{if(obj.isMesh)meshes.push(obj);});
     for(const obj of meshes){

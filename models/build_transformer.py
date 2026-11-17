@@ -88,13 +88,33 @@ for x in [-1.15,1.15]:
         bpy.ops.mesh.primitive_torus_add(major_segments=40,minor_segments=8,location=(x,0,.94+i*.075),major_radius=.53,minor_radius=.044)
         finish(bpy.context.object,'Copper winding turn',copper,'windings')
     pipe('Winding terminal',(x,0,2.4),(x,0,3.05),.045,'windings',copper)
-# HV pair and smaller LV terminal.
-for x,y,h in [(.25,.55,1.5),(1.45,.55,1.5),(-.5,-.6,.82)]:
-    cyl('Bushing flange',(x,y,3.2),.28,.13,edge,'bushings')
+# Single-phase two-winding arrangement: HV pair H1/H2 and LV pair X1/X2.
+# This is a generic terminal arrangement, not a verified as-built layout.
+for terminal,side,x,y,h in [('H1','HV',.25,.65,1.55),('H2','HV',1.55,.65,1.55),('X1','LV',-.65,-.65,.72),('X2','LV',.65,-.65,.72)]:
+    root = bpy.data.objects.new(terminal+' '+side+' bushing', None)
+    bpy.context.collection.objects.link(root)
+    root.parent = groups['bushings']
+    root['terminalId'] = terminal
+    root['voltageSide'] = side
+    created_before = set(bpy.context.scene.objects)
+    radius = .24 if side=='HV' else .19
+    cyl('Bushing flange',(x,y,3.2),radius+.04,.13,edge,'bushings')
     cyl('Porcelain stem',(x,y,3.25+h/2),.11,h,porcelain,'bushings')
     for i in range(round(h/.12)):
-        cyl('Porcelain shed',(x,y,3.31+i*.12),.24-i*.004,.055,porcelain,'bushings')
+        cyl('Porcelain shed',(x,y,3.31+i*.12),radius-i*.004,.055,porcelain,'bushings')
     cyl('Terminal contact',(x,y,3.3+h),.065,.2,copper,'bushings')
+    # Engraved-style terminal designation, facing the front of the tank.
+    box(terminal+' designation plate',(x,y-.32,3.24),(.36,.025,.20),label,'bushings',.003)
+    bpy.ops.object.text_add(location=(x,y-.338,3.175),rotation=(math.pi/2,0,0))
+    lettering=bpy.context.object
+    lettering.data.body=terminal
+    lettering.data.align_x='CENTER'
+    lettering.data.size=.15
+    lettering.data.extrude=.001
+    bpy.ops.object.convert(target='MESH')
+    finish(bpy.context.object,terminal+' terminal marking',edge,'bushings')
+    for obj in set(bpy.context.scene.objects)-created_before:
+        obj.parent=root
 # Oil expansion vessel and its pipe.
 for x in [-1.7,-.65]: box('Conservator saddle',(x,.65,3.38),(.14,.45,.65),edge,'conservator')
 cyl('Conservator vessel',(-1.2,.65,3.95),.39,1.8,paint,'conservator','x',48)

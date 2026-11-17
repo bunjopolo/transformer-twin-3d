@@ -38,3 +38,5 @@
 @media(max-width:850px){#dga-demo{margin-top:4px;margin-bottom:0}}
 
 @media(max-width:1200px){.dga-grid>.stack{grid-template-columns:1fr}}
+
+.dga-method-controls{display:flex;align-items:end;gap:18px;padding:18px 22px;margin-bottom:22px;flex-wrap:wrap}.dga-method-controls label{display:grid;gap:7px;font-size:11px;color:#536b5d;flex:1;min-width:220px}.dga-method-controls select{width:100%;padding:10px}.dga-method-controls p{flex-basis:100%;margin:0}.dga-method p{margin-top:12px}.dga-method a{color:#345e49;text-decoration:underline}

@@ -1,6 +1,6 @@
 'use strict';
 const DGA_CATALOG=TAG_CATALOG.filter(r=>r[6].startsWith('DGA'));
-let dgaTime=null,dgaPlaying=false,dgaSpeed=3600,dgaTimer=null,dgaLastTick=0,dgaTrend='DGA-CH4',dgaControlsOpen=false;
+let dgaTime=null,dgaPlaying=false,dgaSpeed=3600,dgaTimer=null,dgaLastTick=0,dgaTrend='DGA-CH4',dgaControlsOpen=false,dgaMethodId='t1',dgaContext='mineral';
 function dgaMapping(){
   const tags=new Map();for(const r of data.sensors)tags.set(r.tag,r);
   return Object.fromEntries(DGA_CATALOG.map(c=>{
@@ -16,11 +16,11 @@ function dgaModel(){
   const start=times[0],end=times.at(-1);
   if(times.length)dgaTime=dgaTime===null?end:Math.max(start,Math.min(end,dgaTime));
   const latest=new Map();for(const r of rows){const t=Date.parse(r.timestamp);if(t<=dgaTime&&(!latest.has(r.tag)||Date.parse(latest.get(r.tag).timestamp)<t))latest.set(r.tag,r);}
-  const series=dgaSeries(rows,mapping),sample=series.filter(s=>s.time<=dgaTime).at(-1);
-  return {mapping,times,start,end,latest,series,sample};
+  const method=duvalMethod(dgaMethodId,dgaContext),series=dgaSeries(rows,mapping,dgaMethodId,dgaContext),sample=series.filter(s=>s.time<=dgaTime).at(-1);
+  return {mapping,times,start,end,latest,series,sample,method};
 }
 function dgaStop(){dgaPlaying=false;clearInterval(dgaTimer);dgaTimer=null;}
-function dgaReset(){dgaStop();dgaTime=null;}
+function dgaReset(){dgaStop();dgaTime=null;dgaContext='mineral';}
 function dgaTick(){
   const now=performance.now(),m=dgaModel();
   dgaTime=replayAdvance(dgaTime,now-dgaLastTick,dgaSpeed,m.end);dgaLastTick=now;
@@ -41,37 +41,44 @@ function dgaPage(){
   return heading('DGA monitoring','',`<span class="data-source">${data.demo?'Demo data':esc(data.source||'')}</span><button class="btn primary" data-action="imports">↥ &nbsp; Import workbook</button>`)+
   `
 
+  <section class="panel dga-method-controls"><label>Diagram<select id="dga-method" aria-label="Duval diagram">${Object.entries(DUVAL_METHODS).map(([id,method])=>`<option value="${id}" ${dgaMethodId===id?'selected':''}>${method.name}</option>`).join('')}</select></label><label>Imported sample source<select id="dga-context" aria-label="Imported sample source">${[['mineral','Main tank · mineral oil'],['ltc','Conventional oil-arcing LTC · mineral oil'],...Object.entries(DUVAL_FLUIDS).map(([id,f])=>[id,'Main tank · '+f.name])].map(([id,name])=>`<option value="${id}" ${dgaContext===id?'selected':''}>${name}</option>`).join('')}</select></label><p class="sub">Select the compartment and fluid represented by the mapped gas tags.</p></section>
   <div id="dga-frame"></div>
-  <details class="panel dga-mapping"><summary>Gas tag mapping <span class="muted">${Object.values(m.mapping).filter(Boolean).length} / ${DGA_CATALOG.length} mapped</span></summary><p class="sub">Triangle inputs require ppm.</p><div class="mapping">${DGA_CATALOG.map(c=>`<label>${esc(c[1])}<select data-dga-map="${c[0]}" aria-label="${esc(c[1])} tag"><option value="">Not mapped</option>${[...new Map(data.sensors.map(r=>[r.tag,r])).values()].map(r=>`<option value="${esc(r.tag)}" ${m.mapping[c[0]]===r.tag?'selected':''}>${esc(r.tag)} · ${esc(r.name||r.tag)} (${esc(r.unit||'no unit')})</option>`).join('')}</select></label>`).join('')}</div></details>`;
+  <details class="panel dga-mapping"><summary>Gas tag mapping <span class="muted">${Object.values(m.mapping).filter(Boolean).length} / ${DGA_CATALOG.length} mapped</span></summary><p class="sub">All Duval inputs require ppm and matching sample times.</p><div class="mapping">${DGA_CATALOG.map(c=>`<label>${esc(c[1])}<select data-dga-map="${c[0]}" aria-label="${esc(c[1])} tag"><option value="">Not mapped</option>${[...new Map(data.sensors.map(r=>[r.tag,r])).values()].map(r=>`<option value="${esc(r.tag)}" ${m.mapping[c[0]]===r.tag?'selected':''}>${esc(r.tag)} · ${esc(r.name||r.tag)} (${esc(r.unit||'no unit')})</option>`).join('')}</select></label>`).join('')}</div></details>`;
 }
 function duvalXY(p){return [60+480*(p[1]+p[0]/2)/100,460-415.692*p[0]/100]}
 function dgaTriangle(m){
-  const sample=m.sample,valid=sample?.valid;
-  const history=m.series.filter(s=>s.time<=dgaTime&&s.valid).slice(-1000);
-  const point=p=>duvalXY(p).map(n=>n.toFixed(3)).join(',');
-  return `<svg class="duval-svg" viewBox="0 0 600 510" role="img" aria-label="Duval Triangle 1. ${valid?'Selected sample in '+sample.zones.join(' / '):'No valid sample at this time'}"><title>CH4 at the top, C2H4 at bottom right, C2H2 at bottom left. Latest plotted region: ${valid?sample.zones.join(' / '):'unavailable'}.</title>
-  ${DUVAL_ZONES.map(z=>`<polygon points="${z.vertices.map(point).join(' ')}" fill="${z.color}" stroke="#fff" stroke-width="1.2"><title>${z.id}: ${z.name}</title></polygon>`).join('')}
-  ${[20,40,60,80].flatMap(n=>[[[n,0,100-n],[n,100-n,0]],[[0,n,100-n],[100-n,n,0]],[[0,100-n,n],[100-n,0,n]]].map(line=>`<polyline points="${line.map(point).join(' ')}" fill="none" stroke="#344b4930" stroke-dasharray="2 4"/>`)).join('')}
-  ${[20,40,60,80].map(n=>{const [x,y]=duvalXY([n,0,100-n]);return `<text x="${x-12}" y="${y+3}" text-anchor="end" class="duval-tick">${n}</text>`}).join('')}
-  ${[20,40,60,80].map(n=>{const [x,y]=duvalXY([100-n,n,0]);return `<text x="${x+12}" y="${y+3}" class="duval-tick">${n}</text>`}).join('')}
-  ${[20,40,60,80].map(n=>`<text x="${duvalXY([0,100-n,n])[0]}" y="478" text-anchor="middle" class="duval-tick">${n}</text>`).join('')}
-  <text x="300" y="20" text-anchor="middle" class="duval-axis">CH₄ · 100%</text><text x="60" y="501" text-anchor="middle" class="duval-axis">C₂H₂ · 100%</text><text x="540" y="501" text-anchor="middle" class="duval-axis">C₂H₄ · 100%</text>
-  ${DUVAL_ZONES.map(z=>{const [x,y]=duvalXY(z.label);return z.id==='PD'?`<path d="M300 48L252 46" stroke="#536c70"/><text x="240" y="49" class="duval-label">PD</text>`:`<text x="${x}" y="${y}" text-anchor="middle" class="duval-label">${z.id}</text>`}).join('')}
-  ${history.map((s,i)=>{const [x,y]=duvalXY(s.percentages);const previous=history[i-1];const adjacent=previous&&m.series.indexOf(s)===m.series.indexOf(previous)+1;return `${adjacent?`<path d="M${point(previous.percentages)}L${point(s.percentages)}" fill="none" stroke="#25493e" stroke-width="1.7" opacity=".5"/>`:''}<circle cx="${x}" cy="${y}" r="2.8" fill="#25493e" opacity=".45"><title>${dgaTimestamp(s.time)}: ${s.zones.join(' / ')}</title></circle>`}).join('')}
-  ${valid?`<circle cx="${duvalXY(sample.percentages)[0]}" cy="${duvalXY(sample.percentages)[1]}" r="9" fill="white" stroke="#183f35" stroke-width="2"/><circle cx="${duvalXY(sample.percentages)[0]}" cy="${duvalXY(sample.percentages)[1]}" r="4" fill="#183f35"/>`:''}</svg>`;
+  const method=m.method||duvalMethod(),sample=m.sample,valid=sample?.valid,pentagon=method.pentagon;
+  if(!method.zones.length)return '<div class="empty">Choose the imported sample’s alternative fluid to display Triangle 3.</div>';
+  const xy=p=>pentagon?[300+5.7*p[0],260-5.7*p[1]]:duvalXY(p);
+  const point=p=>xy(p).map(n=>n.toFixed(3)).join(',');
+  const history=m.series.map((s,index)=>({...s,index})).filter(s=>s.time<=dgaTime&&s.valid).slice(-1000);
+  const tickStyle='class="duval-tick"';
+  const grid=pentagon?[10,20,30,40].map(n=>`<polygon points="${[0,1,2,3,4].map(i=>{const a=(90+i*72)*Math.PI/180;return point([n*Math.cos(a),n*Math.sin(a)]);}).join(' ')}" fill="none" stroke="#344b4930" stroke-dasharray="2 4"/>`).join(''):
+    [20,40,60,80].flatMap(n=>[[[n,0,100-n],[n,100-n,0]],[[0,n,100-n],[100-n,n,0]],[[0,100-n,n],[100-n,0,n]]].map(line=>`<polyline points="${line.map(point).join(' ')}" fill="none" stroke="#344b4930" stroke-dasharray="2 4"/>`)).join('');
+  const axes=pentagon?method.gases.map((g,i)=>{const a=(90+i*72)*Math.PI/180,[x,y]=xy([45*Math.cos(a),43*Math.sin(a)]);return `<text x="${x}" y="${y}" text-anchor="middle" class="duval-axis">${DUVAL_GASES[g][0]}</text>`;}).join('')+`<text x="300" y="500" text-anchor="middle" ${tickStyle}>Area centroid · Cartesian coordinates</text>`:
+    `<text x="300" y="20" text-anchor="middle" class="duval-axis">${DUVAL_GASES[method.gases[0]][0]} · 100%</text><text x="60" y="501" text-anchor="middle" class="duval-axis">${DUVAL_GASES[method.gases[2]][0]} · 100%</text><text x="540" y="501" text-anchor="middle" class="duval-axis">${DUVAL_GASES[method.gases[1]][0]} · 100%</text>`+
+    [20,40,60,80].map(n=>{const [x,y]=xy([n,0,100-n]),[rx,ry]=xy([100-n,n,0]);return `<text x="${x-12}" y="${y+3}" text-anchor="end" ${tickStyle}>${n}</text><text x="${rx+12}" y="${ry+3}" ${tickStyle}>${n}</text><text x="${xy([0,100-n,n])[0]}" y="478" text-anchor="middle" ${tickStyle}>${n}</text>`;}).join('');
+  return `<svg class="duval-svg" viewBox="0 0 600 510" role="img" aria-label="${esc(method.name)}. ${valid?'Selected sample in '+sample.zones.join(' / '):'No applicable sample at this time'}"><title>${esc(method.name)} · ${method.gases.join(', ')}. Latest plotted region: ${valid?sample.zones.join(' / '):'unavailable'}.</title>
+  ${method.zones.flatMap(z=>(z.polygons||[z.vertices]).map(vertices=>`<polygon points="${vertices.map(point).join(' ')}" fill="${z.color}" stroke="${z.color}" stroke-width=".5"><title>${z.id}: ${esc(z.name)}</title></polygon>`)).join('')}
+  ${grid}${axes}
+  ${method.zones.flatMap(z=>[z.label,...(z.extraLabels||[])].map(label=>{const [x,y]=xy(label);if(z.id==='PD')return `<path d="M${x} ${y}l-42 -3" stroke="#536c70"/><text x="${x-48}" y="${y}" text-anchor="end" class="duval-label">PD</text>`;return `<text x="${x}" y="${y}" text-anchor="middle" class="duval-label">${z.id}</text>`;})).join('')}
+  ${history.map((s,i)=>{const [x,y]=xy(s.point||s.percentages),previous=history[i-1],adjacent=previous&&s.index===previous.index+1;return `${adjacent?`<path d="M${point(previous.point||previous.percentages)}L${point(s.point||s.percentages)}" fill="none" stroke="#25493e" stroke-width="1.7" opacity=".5"/>`:''}<circle cx="${x}" cy="${y}" r="2.8" fill="#25493e" opacity=".45"><title>${dgaTimestamp(s.time)}: ${s.zones.join(' / ')}</title></circle>`;}).join('')}
+  ${valid?`<circle cx="${xy(sample.point||sample.percentages)[0]}" cy="${xy(sample.point||sample.percentages)[1]}" r="9" fill="white" stroke="#183f35" stroke-width="2"/><circle cx="${xy(sample.point||sample.percentages)[0]}" cy="${xy(sample.point||sample.percentages)[1]}" r="4" fill="#183f35"/>`:''}</svg>`;
 }
 function dgaFrame(m){
-  const s=m.sample,valid=s?.valid,zoneText=valid?s.zones.join(' / '):'Unavailable';
+  const method=m.method||duvalMethod(),s=m.sample,valid=s?.valid,zoneText=valid?s.zones.join(' / '):'Unavailable';
   const mapped=Object.values(m.mapping).filter(Boolean).length;
-  const triangleMissing=['DGA-CH4','DGA-C2H4','DGA-C2H2'].some(k=>!m.mapping[k]);
-  return `<div class="dga-grid"><section class="panel"><div class="panel-head"><div><h2>Duval Triangle 1</h2></div>${valid?'':'<span class="badge unknown">No sample</span>'}</div>${dgaTriangle(m)}<div class="diagram-footer"><span>● History &nbsp; ◉ Selected</span></div></section>
-  <div class="stack"><section class="panel"><div class="panel-head"><h2>Duval region</h2></div><div class="dga-result"><div class="dga-zone">${zoneText}</div><h3>${valid?(s.boundary?'Zone boundary':esc(DUVAL_ZONES.find(z=>z.id===s.zones[0]).name)):'No valid sample'}</h3><p class="sub">${valid&&s.boundary?s.zones.map(id=>esc(DUVAL_ZONES.find(z=>z.id===id).name)).join(' / '):triangleMissing?'Map methane, ethylene and acetylene below.':s&&!valid?esc(s.reason):''}</p><p class="table-tag">Sample: ${s?dgaTimestamp(s.time):'—'}</p>
-  <div class="dga-inputs">${[['CH₄','Methane'],['C₂H₄','Ethylene'],['C₂H₂','Acetylene']].map(([formula,name],i)=>`<div><span>${formula}<small>${name}</small></span><strong>${s?.rows[i]?fmt(s.rows[i].actual):'—'} <small>${esc(s?.rows[i]?.unit||'ppm')}</small></strong><span>${valid?fmt(s.percentages[i])+'%':'—'}</span></div>`).join('')}</div></div></section>
+  const required=[...new Set([...method.gases,...(method.prerequisite?DUVAL_METHODS.t1.gases:[])])],missing=required.filter(g=>!m.mapping['DGA-'+g]);
+  const reason=duvalContextReason(dgaMethodId,dgaContext)||(missing.length?'Map '+missing.join(', ')+' below.':s&&!valid?s.reason:!s?'No simultaneous sample is available.':'');
+  return `<div class="dga-grid"><section class="panel"><div class="panel-head"><div><h2>${esc(method.name)}</h2><p class="sub">${esc(method.scope)}</p></div>${valid?'':'<span class="badge unknown">No sample</span>'}</div>${dgaTriangle(m)}<div class="diagram-footer"><span>● History &nbsp; ◉ Selected</span></div></section>
+  <div class="stack"><section class="panel"><div class="panel-head"><h2>Duval region</h2></div><div class="dga-result"><div class="dga-zone">${zoneText}</div><h3>${valid?(s.boundary?'Zone boundary':esc(method.zones.find(z=>z.id===s.zones[0]).name)):'No valid sample'}</h3><p class="sub">${valid&&s.boundary?s.zones.map(id=>esc(method.zones.find(z=>z.id===id).name)).join(' / '):esc(reason)}</p><p class="table-tag">Sample: ${s?dgaTimestamp(s.time):'—'}</p>
+  ${valid&&s.primaryZones?`<p class="sub">Triangle 1: ${s.primaryZones.join(' / ')}</p>`:''}${valid&&method.pentagon?`<p class="table-tag">Centroid: (${s.point.map(n=>n.toFixed(3)).join(', ')})</p>`:''}
+  <div class="dga-inputs">${method.gases.map(g=>DUVAL_GASES[g]).map(([formula,name],i)=>`<div><span>${formula}<small>${name}</small></span><strong>${s?.rows[i]?fmt(s.rows[i].actual):'—'} <small>${esc(s?.rows[i]?.unit||'ppm')}</small></strong><span>${valid?fmt(s.percentages[i])+'%':'—'}</span></div>`).join('')}</div></div></section>
   </div></div>
-  <div class="dga-legend">${DUVAL_ZONES.map(z=>`<span><i style="background:${z.color}"></i><b>${z.id}</b> ${z.name}</span>`).join('')}</div>
+  <div class="dga-legend">${method.zones.map(z=>`<span><i style="background:${z.color}"></i><b>${z.id}</b> ${z.name}</span>`).join('')}</div>
   <section class="panel dga-trend-panel"><div class="panel-head"><div><h2>Gas trend</h2><p class="sub">24 hours</p></div><select id="dga-trend" aria-label="Gas trend channel">${DGA_CATALOG.map(c=>`<option value="${c[0]}" ${dgaTrend===c[0]?'selected':''}>${esc(c[1])}</option>`).join('')}</select></div>${dgaTrendChart(m)}</section>
   <section class="panel"><div class="panel-head"><div><h2>All DGA monitors <span class="muted">${mapped} / ${DGA_CATALOG.length} mapped</span></h2></div></div><div class="table-wrap"><table class="dga-table"><thead><tr><th>Measurement / tag</th><th>Actual</th><th>Estimate</th><th>Sample time (UTC)</th><th>Advisory</th><th>Diagnostic advisory</th></tr></thead><tbody>${DGA_CATALOG.map((c,i)=>{const r=m.latest.get(m.mapping[c[0]]);return `${i===0||DGA_CATALOG[i-1][6]!==c[6]?`<tr class="dga-group"><th colspan="6">${esc(c[6])}</th></tr>`:''}<tr><td>${esc(c[1])}<small>${esc(m.mapping[c[0]]||'Not mapped')}</small></td><td class="numeric">${r?fmt(r.actual):'—'} <small>${esc(r?.unit||c[5])}</small></td><td class="numeric">${r?fmt(r.predicted):'—'}</td><td>${r?dateLabel(r.timestamp):'No sample yet'}</td><td>${r?indicatorBadge(r):'—'}</td><td>${r?indicatorBadge(r,true):'—'}</td></tr>`}).join('')}</tbody></table></div></section>
-  <details class="note-panel dga-method"><summary>Method</summary><p>Mineral oil · CH₄, C₂H₄ and C₂H₂ in ppm, sampled together. Percentages use their combined total. Invalid samples are excluded; boundaries show adjacent regions. Replay holds each reading until the next sample.</p><p>Regions indicate fault type, not severity or proof of a fault. Temperature ranges are categories, not measured temperatures. Assess gas levels, rates and equipment history together.</p><p>Geometry: <a href="https://www.makhillpublications.co/public/files/published-files/mak-ijepe/2010/3-193-197.pdf" target="_blank" rel="noopener">Duval zone coordinates, Table 3 (2010)</a>. Interpretation context: <a href="https://www.vaisala.com/en/calculators/dgacalculator" target="_blank" rel="noopener">Vaisala DGA guidance</a>.</p></details>`;
+  <details class="note-panel dga-method"><summary>Method &amp; sources</summary><p>${esc(method.scope)}. Inputs are simultaneous concentrations in ppm. ${method.pentagon?'The five-gas area centroid uses axes H₂ → C₂H₆ → CH₄ → C₂H₄ → C₂H₂, counterclockwise. Zero readings require laboratory-approved detection-limit values.':'Each gas percentage uses the sum of the three gases on the axes.'} Missing, negative, duplicate and zero-total samples are excluded. Shared boundaries show adjacent regions.</p><p>${dgaMethodId==='t2'?'This is the conventional oil-arcing LTC version. Model-specific normal zones and vacuum LTCs need their own interpretation. Both ethylene and acetylene below 10 ppm prevent classification.':dgaMethodId==='t3'?'Triangle 3 is fluid-specific. The published silicone, MIDEL and BIOTEMP T2/T3 limits are extrapolated. Gas extraction must use the correct fluid-specific solubility coefficients.':method.prerequisite?'A simultaneous Triangle 1 result must be wholly within '+method.prerequisite.join(' / ')+'. An excluded adjacent region prevents classification.':'Compare the methods alongside absolute gas concentrations and trends.'}</p><p>Regions suggest fault type, not severity or proof of a fault. ND means not determined. C indicates possible paper carbonization; investigate carbon oxides and furans. Temperature ranges are categories, not measured temperatures.</p><p>Reference edition: <a href="${DUVAL_REFERENCE}" target="_blank" rel="noopener">IEEE reference workbooks (2016)</a>; <a href="https://doi.org/10.1109/MEI.2008.4665347" target="_blank" rel="noopener">Duval’s triangle paper</a>. The <a href="https://grouper.ieee.org/groups/transformers/subcommittees/fluids/C57.104/S25-C57.104-MtgPresentation.pdf" target="_blank" rel="noopener">2025 IEEE correction examples</a> were checked against the workbooks; proposed new method revisions are not silently applied. <a href="duval-methods.html" target="_blank" rel="noopener">Implementation &amp; validation notes</a>.</p></details>`;
 }
 function dgaTrendChart(m){
   if(!m.mapping[dgaTrend]||!m.latest.has(m.mapping[dgaTrend]))return '<div class="empty">No readings at this time.</div>';
@@ -95,6 +102,9 @@ function bindDga(){
   if(page!=='dga'){controls.innerHTML='';return;}
   controls.innerHTML=dgaControls();
   $('#dga-demo-details').ontoggle=e=>{dgaControlsOpen=e.target.open;};
+  $('#dga-method').onchange=e=>{dgaStop();dgaMethodId=e.target.value;dgaRefresh();};
+  $('#dga-context').onchange=e=>{dgaStop();dgaContext=e.target.value;dgaRefresh();};
+  for(const id of ['#dga-method','#dga-context'])$(id).onfocus=()=>{if(dgaPlaying){dgaStop();dgaRefresh();}};
   dgaRefresh();$('#dga-play').onclick=dgaToggle;
   $('#dga-restart').onclick=()=>{dgaStop();dgaTime=dgaModel().start;dgaRefresh();};
   $('#dga-speed').onchange=e=>{if(dgaPlaying)dgaTick();dgaSpeed=Number(e.target.value);dgaLastTick=performance.now();};

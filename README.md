@@ -2,7 +2,7 @@
 
 Static hydro generation transformer prototype. Serve `dist/` with any HTTP server (for example `python3 -m http.server 4173 --directory dist`). No build step or backend required.
 
-Includes interactive SVG transformer, actual/predicted trends, component health, advisories, maintenance records, Excel/CSV imports with column mapping and validation, data export, and local browser persistence.
+Includes interactive SVG transformer, actual/predicted trends, source advisory highlighting, advisories, maintenance records, Excel/CSV imports with column mapping and validation, data export, and local browser persistence.
 
 The primary import accepts the described GE SmartSignal offline export: one worksheet per tag, with Timestamp, Actual, Estimate, Advisory Indication and Diagnostic Advisory Indication. Each worksheet name is the tag ID. Configure its component, optional display name/unit, header row and column mapping, then apply all selected tags in one operation. Residual and smoothed-residual columns are ignored. Extra worksheets can be excluded. The example workbook is synthetic, based on the user's description, not an actual SmartSignal export.
 
@@ -10,7 +10,7 @@ Both indication columns contain text. Non-empty messages are displayed verbatim 
 
 Choose ISO, month/day/year, or day/month/year for textual timestamps and a fixed timezone offset for timestamps without one. Excel date serials respect the workbook's 1900/1904 epoch. Explicit timestamp offsets are preserved. Fixed offsets do not adjust for DST; split exports spanning a change or use explicit offsets. All display timestamps are UTC. The actual export's precise timestamp format has not been provided.
 
-Use “Maintenance / health template” for separate Maintenance and Health sheets, or a normalized Sensors backup. The first import removes all demonstration data. Later tag-workbook imports replace sensors while retaining imported maintenance/health; tag-component assignments are remembered. Limits: 10 MB/file, 20,000 readings/tag, 100,000 readings/workbook. No supplied numerical health ratings means no health score is displayed. The headline health rating is the lowest available component score, with coverage alongside it.
+Use “Maintenance template” for maintenance document records, including engineer-completed equipment health ratings, or a normalized Sensors backup. Maintenance records require component, title and content; categories are deferred. Equipment health ratings are not calculated, aggregated, displayed as scores or used to color components. The overlay shows only whether source advisory text is supplied, not equipment condition. The first import removes demonstration data; later tag imports retain imported maintenance records. Legacy numerical health data remains available in backups for compatibility, but is not used by the app. Limits: 10 MB/file, 20,000 readings/tag, 100,000 readings/workbook.
 
 Checks: `node test-imports.cjs` and `node test-smartsignal.cjs`. These cover parsing a round-tripped XLSX workbook, column mapping, independent advisory text, missing vs blank indications, zero readings, timestamps, duplicates, browser-state persistence logic, and preservation of maintenance/health data. Browser QA also covers the example workbook's full import and reload.
 

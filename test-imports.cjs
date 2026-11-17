@@ -7,6 +7,7 @@ const ctx = vm.createContext({XLSX,console,structuredClone,Date,setTimeout,clear
 const source = fs.readFileSync('dist/app.js','utf8');
 vm.runInContext(fs.readFileSync('dist/tag-catalog.js','utf8'),ctx);
 vm.runInContext(fs.readFileSync('dist/smartsignal.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync('dist/transformer.js','utf8'),ctx);
 vm.runInContext(source.slice(0, source.lastIndexOf("document.querySelectorAll('.nav')")),ctx);
 vm.runInContext('render=()=>{}; notify=()=>{};',ctx);
 const run = s=>vm.runInContext(s,ctx);
@@ -17,9 +18,9 @@ assert.equal(run("parseDate('2026-11-16 08:00:00')"),'2026-11-16T08:00:00.000Z')
 assert.equal(run("parseDate('2026-11-16T08:00:00-08:00')"),'2026-11-16T16:00:00.000Z');
 assert.equal(run('parseDate(25569)'),'1970-01-01T00:00:00.000Z');
 const fixture=XLSX.utils.book_new();
-for(const [type,key] of [['Sensors','sensors'],['Maintenance','maintenance'],['Health','health']]) XLSX.utils.book_append_sheet(fixture,XLSX.utils.json_to_sheet(run(`demoData().${key}`)),type);
+for(const [type,key] of [['Sensors','sensors'],['Maintenance','maintenance'],['Health','health']]) XLSX.utils.book_append_sheet(fixture,XLSX.utils.json_to_sheet(type==='Health'?[{component:'cooling',score:1,status:'critical',date:'2026-11-16T16:00:00.000Z',notes:'Legacy backup'}]:run(`demoData().${key}`)),type);
 ctx.book=XLSX.read(process.argv[2]?fs.readFileSync(process.argv[2]):XLSX.write(fixture,{type:'buffer',bookType:'xlsx'}),{type:'buffer',raw:true});
-for(const [type,count] of [['Sensors',525],['Maintenance',12],['Health',6]]){
+for(const [type,count] of [['Sensors',525],['Maintenance',12],['Health',1]]){
   run(`pending={book,file:'test.xlsx',sheet:'${type}',type:'${type}'};loadSheet();`);
   assert.equal(run('validate().errors.length'),0,`${type} validates`);
   assert.equal(run('validate().rows.length'),count);
@@ -32,7 +33,7 @@ for(const [type,count] of [['Sensors',525],['Maintenance',12],['Health',6]]){
 }
 assert.equal(run('data.sensors.length'),525);
 assert.equal(run('data.maintenance.length'),12);
-assert.equal(run('data.health.length'),6);
+assert.equal(run('data.health.length'),1);
 assert.equal(run('data.imports.length'),3);
 assert.equal(JSON.parse(storage.get('field-twin-v1')).sensors.length,525);
 run("pending={book,file:'test.xlsx',sheet:'Sensors',type:'Sensors'};loadSheet();pending.raw.push(pending.raw[0]);");
@@ -50,3 +51,15 @@ assert.equal(run("snapshot().filter(r=>r.advisory).length"),0);
 assert.equal(run("healthFor('cooling')"),undefined);
 assert.equal(run("esc('<img onerror=alert(1)>')"),'&lt;img onerror=alert(1)&gt;');
 console.log('PASS: real XLSX template parsing, all three import types, persistence, sample clearing, duplicate validation, blank vs zero, invalid dates/components, mapping, historical snapshots and escaping.');
+
+run("stamp=''; component='cooling';");
+assert.equal(run("statusFor('cooling')"),'watch','Legacy critical score must not drive the overlay');
+assert.ok(!run('overview()').includes('Equipment health'));
+assert.ok(!run('componentPanel()').includes('/ 100'));
+assert.ok(!run('libraryPage()').includes('Component health'));
+assert.ok(!run('importsPage()').includes('score, status'));
+run("pending={book,file:'test.xlsx',sheet:'Maintenance',type:'Maintenance'};loadSheet();pending.map.type='';pending.raw[0][pending.headers.indexOf('title')]='Equipment health rating';");
+assert.equal(run('validate().errors.length'),0,'Maintenance documents need no category');
+run('applyImport()');
+assert.ok(run('libraryPage()').includes('Equipment health rating'));
+console.log('PASS: engineer assessment uses maintenance library without a category; legacy scores do not drive metrics or overlay.');

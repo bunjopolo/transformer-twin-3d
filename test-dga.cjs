@@ -1,0 +1,34 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const {DUVAL_ZONES,duvalAnalyze,dgaSeries,replayAdvance}=require('./dist/duval.js');
+const cases=[[[99,.5,.5],'PD'],[[20,10,70],'D1'],[[20,40,40],'D2'],[[60,30,10],'DT'],[[90,8,2],'T1'],[[65,33,2],'T2'],[[20,70,10],'T3'],[[56,55,43],'D2']];
+for(const [values,zone] of cases){const r=duvalAnalyze(values);assert.deepEqual(r.zones,[zone]);assert.ok(Math.abs(r.percentages.reduce((a,b)=>a+b,0)-100)<1e-10);assert.deepEqual(duvalAnalyze(values.map(v=>v*15)).zones,[zone]);}
+assert.deepEqual(duvalAnalyze([98,1,1]).zones,['PD','T1']);
+assert.deepEqual(duvalAnalyze([76,20,4]).zones,['DT','T1','T2']);
+for(const v of [[0,0,0],[-1,2,3],[null,2,3],['2',2,3],[NaN,2,3],[Infinity,2,3],[1,2]])assert.equal(duvalAnalyze(v).valid,false);
+for(let a=0;a<=100;a++)for(let b=0;b<=100-a;b++)assert.equal(duvalAnalyze([a,b,100-a-b]).valid,true,`Coverage at ${a},${b}`);
+for(const z of DUVAL_ZONES)for(const v of z.vertices){assert.equal(v.reduce((a,b)=>a+b),100);assert.ok(duvalAnalyze(v).zones.includes(z.id));}
+const mapping={'DGA-CH4':'meth','DGA-C2H4':'ethylene','DGA-C2H2':'acetylene'};
+const rows=[['meth',20],['ethylene',11],['acetylene',.4]].map(([tag,actual])=>({tag,actual,unit:'ppm',timestamp:'2026-11-16T10:00:00Z'}));
+assert.equal(dgaSeries(rows,mapping)[0].valid,true);
+assert.equal(dgaSeries(rows.slice(0,2),mapping)[0].valid,false);
+assert.equal(dgaSeries([...rows,{...rows[0],timestamp:'2026-11-16T11:00:00Z'}],mapping).at(-1).valid,false,'Do not use stale gas triplets for new samples');
+assert.equal(dgaSeries([...rows,rows[0]],mapping)[0].valid,false);
+assert.equal(dgaSeries(rows.map(r=>({...r,unit:'ppm/month'})),mapping)[0].valid,false);
+assert.equal(dgaSeries(rows,{...mapping,'DGA-CH4':''}).length,0);
+assert.equal(dgaSeries(rows.map((r,i)=>({...r,timestamp:i?'2026-11-16T02:00:00-08:00':r.timestamp})),mapping)[0].valid,true);
+assert.equal(replayAdvance(0,1000,1,100000),1000);
+assert.equal(replayAdvance(0,1000,3600,9999999),3600000);
+assert.equal(replayAdvance(4000,1000,60,5000),5000);
+const ctx=vm.createContext({Date,structuredClone,setTimeout,clearTimeout,console,localStorage:{getItem:()=>null,setItem:()=>{}}});
+for(const f of ['tag-catalog','smartsignal','duval','dga'])vm.runInContext(fs.readFileSync(`dist/${f}.js`,'utf8'),ctx);
+const app=fs.readFileSync('dist/app.js','utf8');vm.runInContext(app.slice(0,app.lastIndexOf("document.querySelectorAll('.nav')")),ctx);
+const run=s=>vm.runInContext(s,ctx);
+assert.equal(run('Object.values(dgaMapping()).filter(Boolean).length'),16);
+assert.equal(run('dgaModel().series.length'),25);
+assert.equal(run('dgaModel().sample.zones[0]'),'T2');
+assert.ok(run('dgaPage().includes("Replay position")'));
+assert.ok(run('dgaFrame(dgaModel()).includes("All DGA monitors")'));
+run('dgaTime=dgaModel().start');assert.equal(run('dgaModel().sample.time'),run('dgaTime'));
+run('dgaTime+=1800000');assert.equal(run('dgaModel().sample.time'),run('dgaTime-1800000'));
+run("data.sensors=[];dgaTime=null");assert.equal(run('dgaModel().series.length'),0);assert.ok(run('dgaFrame(dgaModel()).includes("Unavailable")'));
+console.log('PASS: seven zones, boundaries, scale invariance, full integer simplex coverage, data validity/alignment, playback timing, catalog and UI rendering.');

@@ -8,7 +8,7 @@ let renderer, scene, camera, controls, model, observer, host, state, failed=fals
 let previousComponent=null, cutaway=true, hovered=null, frame=0;
 const gesture=selectionGesture();
 const viewport=document.createElement('div');viewport.className='model-viewport';
-const tooltip=document.createElement('div');tooltip.className='model-tooltip';tooltip.hidden=true;
+const tooltip=document.createElement('div');tooltip.className='model-tooltip';tooltip.hidden=true;tooltip.id='model-tag-tooltip';tooltip.setAttribute('role','tooltip');
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 const home=new THREE.Vector3(6.5,6,10),target=new THREE.Vector3(-.7,2,0);
 function draw(){frame=0;if(renderer&&host?.isConnected)renderer.render(scene,camera);}
@@ -46,6 +46,18 @@ function pick(event){
   camera.updateMatrixWorld();model.updateMatrixWorld(true);raycaster.setFromCamera(pointer,camera);
   return firstVisibleComponent(raycaster.intersectObject(model,true),state.statuses);
 }
+function showHover(id,x,y){
+  if(id!==hovered){hovered=id;applyState();}
+  tooltip.hidden=!id;if(!id)return;
+  // HTML is escaped by the shared dashboard formatter, never built from raw imports here.
+  if(tooltip.dataset.component!==id){tooltip.innerHTML=state.hoverCards[id];tooltip.dataset.component=id;}
+  tooltip.style.width=Math.min(310,host.clientWidth-16)+'px';
+  const w=tooltip.offsetWidth,h=tooltip.offsetHeight;
+  const left=x+w+18>host.clientWidth?x-w-14:x+14;
+  const top=y-h-12<8?y+16:y-h-12;
+  tooltip.style.left=Math.max(8,Math.min(left,host.clientWidth-w-8))+'px';
+  tooltip.style.top=Math.max(8,Math.min(top,host.clientHeight-h-8))+'px';
+}
 function clearHover(){hovered=null;tooltip.hidden=true;if(renderer)renderer.domElement.style.cursor='grab';applyState();}
 function zoom(factor){camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.65,3);camera.updateProjectionMatrix();controls.update();invalidate();}
 function reset(){camera.position.copy(home);camera.zoom=1;camera.updateProjectionMatrix();controls.target.copy(target);controls.update();invalidate();}
@@ -72,9 +84,7 @@ function initialize(){
     gesture.move(e);
     if(gesture.active){if(hovered)clearHover();return;}
     if(!model)return;const id=pick(e);
-    if(id!==hovered){hovered=id;applyState();}
-    canvas.style.cursor=id?'pointer':'grab';tooltip.hidden=!id;
-    if(id){tooltip.textContent=`${state.names[id]} · Click for details`;tooltip.style.left=Math.min(e.offsetX+12,Math.max(0,host.clientWidth-230))+'px';tooltip.style.top=Math.max(0,e.offsetY-35)+'px';}
+    canvas.style.cursor=id?'pointer':'grab';showHover(id,e.offsetX,e.offsetY);
   });
   canvas.addEventListener('pointerup',e=>{
     if(!gesture.up(e)||!model)return;const id=pick(e);if(!id)return;
@@ -84,8 +94,9 @@ function initialize(){
   canvas.addEventListener('pointercancel',()=>{gesture.clear();clearHover();});
   canvas.addEventListener('pointerleave',()=>clearHover());
   canvas.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){clearHover();return;}
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','=','-','Home'].includes(e.key))return;
-    e.preventDefault();if(e.key==='Home'){reset();return;}if(e.key==='+'||e.key==='='){zoom(1.15);return;}if(e.key==='-'){zoom(1/1.15);return;}
+    e.preventDefault();clearHover();if(e.key==='Home'){reset();return;}if(e.key==='+'||e.key==='='){zoom(1.15);return;}if(e.key==='-'){zoom(1/1.15);return;}
     const s=new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
     if(e.key==='ArrowLeft')s.theta-=.13;if(e.key==='ArrowRight')s.theta+=.13;
     if(e.key==='ArrowUp')s.phi=Math.max(.1,s.phi-.13);if(e.key==='ArrowDown')s.phi=Math.min(Math.PI*.49,s.phi+.13);
@@ -108,10 +119,17 @@ function initialize(){
 }
 window.Transformer3D={
   mount(next){
-    state=next;host=document.querySelector('#model-canvas');if(!host)return;
+    state=next;tooltip.dataset.component='';host=document.querySelector('#model-canvas');if(!host)return;
     try{if(!renderer&&!failed)initialize();}catch(error){failed=true;console.error(error);}
     if(failed){message('3D graphics are unavailable. Use the 2D view below.');return;}
     host.append(viewport);observer.observe(host);
+    // Keyboard users can preview the same card by focusing a component button.
+    document.querySelectorAll('.model-component').forEach(button=>{
+      button.setAttribute('aria-describedby',tooltip.id);
+      button.onfocus=()=>showHover(button.dataset.select,host.clientWidth/2,host.clientHeight-10);
+      button.onblur=clearHover;
+      button.onkeydown=e=>{if(e.key==='Escape')clearHover();};
+    });
     document.querySelector('#model-reset').onclick=reset;
     document.querySelector('#model-zoom-in').onclick=()=>zoom(1.15);
     document.querySelector('#model-zoom-out').onclick=()=>zoom(1/1.15);

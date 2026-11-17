@@ -52,3 +52,11 @@ Editable source: `models/transformer.blend`. Regenerate both source and web asse
 Run locally: `python3 -m http.server 4174 --bind 127.0.0.1 --directory dist`, then visit http://127.0.0.1:4174. This branch has not been deployed to the existing Site. Browser-local storage is scoped to its preview origin; import or restore a backup there to use an existing dataset.
 
 Validation: the four original regression suites plus `node test-3d.cjs`. Browser checks cover model loading, direct mesh selection for all six components, rotation without selection, cutaway hardware, component details/maintenance and matching 2D/3D details. `test-3d.cjs` also covers hidden-geometry picking, occlusion and click/drag/pinch/cancel gestures.
+
+### Model tag readouts
+
+Hover over a model part to see up to three assigned tags with actual values, units, tag IDs and UTC sample timestamps from the dashboard's selected snapshot. The card identifies demo/imported data and links the interaction to the shared component details. Focus a component button for the same preview; Escape dismisses it. Clicking a component (including on touch devices) reveals all mapped tags in its details panel; selecting a tag opens its actual-versus-estimate trend. Components without readings show an empty state, and missing units are explicitly marked.
+
+The current winding catalog includes generator voltage, generator current and Phase A winding temperature. These are component-level tags, not separate HV/LV-coil measurements; generator voltage is not relabelled as an HV-coil measurement. Cooling has inlet temperature and water flow; the tank has oil/gas concentrations and gas rates. Imported custom tags follow their assigned component. No new readings are simulated and no live connection is implied. Historical snapshots use the latest available reading at or before the selected time, preserving each tag's own sample timestamp.
+
+Additional regression suite: `node test-model-tags.cjs` covers snapshot cutoffs, custom mappings, zero/missing readings, missing units, all-tag access and escaped import content. Browser verification covers readout rendering, historical-value changes and tag-to-trend navigation.

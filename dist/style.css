@@ -28,3 +28,13 @@
 .dga-scrubber input{display:block;width:100%;margin:7px 0 0;accent-color:#81978a}
 #dga-demo:not([hidden])+.sidebar-bottom{margin-top:auto;padding-top:20px}
 @media(max-width:850px){.sidebar{flex-wrap:wrap}#dga-demo{flex-basis:100%;margin:4px 0 0;padding:8px 0 0}.dga-demo-body{max-width:330px}.dga-controls #dga-clock{margin-left:0}}
+
+/* Keep monitoring views focused on measurements and actions. */
+.data-source{font-size:10px;color:var(--muted);font-weight:400;overflow-wrap:anywhere}
+.heading .actions .data-source{max-width:220px}
+#dga-demo{margin-top:auto;padding-top:14px;margin-bottom:6px}
+.import-help>summary{padding:17px 20px;cursor:pointer;font-size:12px;color:#536b5c}
+.advisory-text{display:block;color:#9e762c;font-size:11px}
+@media(max-width:850px){#dga-demo{margin-top:4px;margin-bottom:0}}
+
+@media(max-width:1200px){.dga-grid>.stack{grid-template-columns:1fr}}

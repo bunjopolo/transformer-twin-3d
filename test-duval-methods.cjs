@@ -70,10 +70,10 @@ for(const f of ['tag-catalog','smartsignal','duval','dga'])vm.runInContext(fs.re
 const app=fs.readFileSync('dist/app.js','utf8');vm.runInContext(app.slice(0,app.lastIndexOf("document.querySelectorAll('.nav')")),ctx);
 const run=source=>vm.runInContext(source,ctx);
 const html=run('dgaFrame(dgaModel())');
-for(const id of ['t1','t2','t4','t5','p1','p2',...Object.keys(d.DUVAL_FLUIDS).map(f=>'t3-'+f)])assert.ok(html.includes(`data-duval-card="${id}"`),id);
-assert.equal((html.match(/class="duval-svg"/g)||[]).length,10,'all diagrams render together');
+for(const id of ['t1','t4','t5','p1','p2'])assert.ok(html.includes(`data-duval-card="${id}"`),id);
+assert.equal((html.match(/class="duval-svg"/g)||[]).length,5,'all main-tank diagrams render together');
 assert.ok(!html.includes('NaN'));assert.ok(!html.includes('undefined'));
-assert.ok(html.includes('Comparison reference'));assert.ok(html.includes('conventional oil-arcing LTC'));
+assert.ok(!html.includes('Comparison reference'));assert.ok(!html.includes('Duval Triangle 2'));assert.ok(!html.includes('Duval Triangle 3'));assert.ok(!html.includes('Alternative-fluid'));assert.ok(html.includes('Main transformer oil tank'));
 assert.ok(!run('dgaPage()').includes('id="dga-method"'));assert.ok(!run('dgaPage()').includes('Imported sample source'));
 run('dgaTime=dgaModel().start');assert.ok(run('dgaModel().views.every(v=>v.sample.time===dgaTime)'));
 run('dgaTime+=1800000');assert.ok(run('dgaModel().views.every(v=>v.sample.time===dgaTime-1800000)'));

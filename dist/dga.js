@@ -9,15 +9,13 @@ function dgaMapping(){
     return [c[0],matches.length===1?matches[0].tag:''];
   }));
 }
-// Equipment-specific diagrams are explicit comparisons, never inferred sample metadata.
+// This asset monitors one mineral-oil main transformer tank.
 const DGA_VIEWS=[
   {key:'t1',id:'t1',context:'mineral'},
   {key:'t4',id:'t4',context:'mineral'},
   {key:'t5',id:'t5',context:'mineral'},
   {key:'p1',id:'p1',context:'mineral'},
-  {key:'p2',id:'p2',context:'mineral'},
-  {key:'t2',id:'t2',context:'ltc',reference:true},
-  ...Object.keys(DUVAL_FLUIDS).map(context=>({key:'t3-'+context,id:'t3',context,reference:true}))
+  {key:'p2',id:'p2',context:'mineral'}
 ];
 function dgaModel(){
   const mapping=dgaMapping(),signature=JSON.stringify(mapping);
@@ -60,7 +58,7 @@ function dgaPage(){
 function duvalXY(p){return [60+480*(p[1]+p[0]/2)/100,460-415.692*p[0]/100]}
 function dgaTriangle(m){
   const method=m.method||duvalMethod(),sample=m.sample,valid=sample?.valid,pentagon=method.pentagon;
-  if(!method.zones.length)return '<div class="empty">Choose the imported sample’s alternative fluid to display Triangle 3.</div>';
+  if(!method.zones.length)return '<div class="empty">No diagram geometry is available.</div>';
   const xy=p=>pentagon?[300+5.7*p[0],260-5.7*p[1]]:duvalXY(p);
   const point=p=>xy(p).map(n=>n.toFixed(3)).join(',');
   const history=m.series.map((s,index)=>({...s,index})).filter(s=>s.time<=dgaTime&&s.valid).slice(-1000);
@@ -83,24 +81,21 @@ function dgaCard(view,m){
   const reason=missing.length?'Map '+missing.join(', ')+' below.':s&&!valid?s.reason:!s?'No simultaneous sample is available.':'';
   const region=valid?s.zones.join(' / '):s?.primaryZones?'Not applicable':'Unavailable';
   const description=valid?s.zones.map(id=>method.zones.find(z=>z.id===id)?.name||id).join(' / '):reason;
-  return `<section class="panel dga-card ${view.reference?'dga-reference':''}" data-duval-card="${view.key}">
-    <div class="dga-card-head"><h2>${esc(method.name)}</h2><p>${view.reference?'Comparison reference':esc(method.scope)}</p></div>
+  return `<section class="panel dga-card" data-duval-card="${view.key}">
+    <div class="dga-card-head"><h2>${esc(method.name)}</h2><p>${esc(method.scope)}</p></div>
     ${dgaTriangle(view)}
     <div class="dga-card-result"><div class="dga-region-line"><strong class="dga-region">${region}</strong>${valid&&s.boundary?'<span class="badge unknown">Boundary</span>':''}${valid&&s.primaryZones?`<span class="dga-prerequisite">Triangle 1 · ${s.primaryZones.join(' / ')}</span>`:''}</div><p>${esc(description)}</p>
-    ${view.id==='t2'?'<p class="dga-reference-note">Use only for a conventional oil-arcing LTC compartment.</p>':view.id==='t3'?`<p class="dga-reference-note">Use only for ${esc(DUVAL_FLUIDS[view.context].name)} main-tank samples.</p>`:''}
     <div class="dga-percentages">${method.gases.map((g,i)=>`<span>${DUVAL_GASES[g][0]} <b>${valid?fmt(s.percentages[i])+'%':'—'}</b></span>`).join('')}</div>
     <div class="dga-sample-time">Sample · ${s?dgaTimestamp(s.time):'—'}</div></div></section>`;
 }
 function dgaFrame(m){
   const mapped=Object.values(m.mapping).filter(Boolean).length;
-  return `<div class="dga-dashboard-bar"><div><h2>Duval dashboard</h2><p>Shared gas readings · mineral-oil main-tank methods and labeled comparisons</p></div><div class="dga-dashboard-clock"><span>${dgaTimestamp(dgaTime)}</span><small>● History &nbsp; ◉ Selected sample</small></div></div>
+  return `<div class="dga-dashboard-bar"><div><h2>Duval dashboard</h2><p>Main transformer oil tank · shared gas concentrations</p></div><div class="dga-dashboard-clock"><span>${dgaTimestamp(dgaTime)}</span><small>● History &nbsp; ◉ Selected sample</small></div></div>
   <div class="dga-gas-strip">${['H2','CH4','C2H4','C2H2','C2H6'].map(g=>{const r=m.latest.get(m.mapping['DGA-'+g]);return `<div><span>${DUVAL_GASES[g][0]} <small>${DUVAL_GASES[g][1]}</small></span><strong>${r?fmt(r.actual):'—'} <small>${esc(r?.unit||'ppm')}</small></strong><time>${r?dgaTimestamp(Date.parse(r.timestamp)):'No reading'}</time></div>`;}).join('')}</div>
-  <div class="dga-dashboard-grid">${m.views.filter(v=>v.id!=='t3').map(v=>dgaCard(v,m)).join('')}</div>
-  <div class="dga-section-heading"><h2>Duval Triangle 3 <span>Alternative-fluid comparisons</span></h2><p>The same concentrations shown against each fluid’s boundaries. Use the result for the actual insulating fluid.</p></div>
-  <div class="dga-fluid-grid">${m.views.filter(v=>v.id==='t3').map(v=>dgaCard(v,m)).join('')}</div>
+  <div class="dga-dashboard-grid">${m.views.map(v=>dgaCard(v,m)).join('')}</div>
   <section class="panel dga-trend-panel"><div class="panel-head"><div><h2>Gas trend</h2><p class="sub">24 hours</p></div><select id="dga-trend" aria-label="Gas trend channel">${DGA_CATALOG.map(c=>`<option value="${c[0]}" ${dgaTrend===c[0]?'selected':''}>${esc(c[1])}</option>`).join('')}</select></div>${dgaTrendChart(m)}</section>
   <section class="panel"><div class="panel-head"><div><h2>All DGA monitors <span class="muted">${mapped} / ${DGA_CATALOG.length} mapped</span></h2></div></div><div class="table-wrap"><table class="dga-table"><thead><tr><th>Measurement / tag</th><th>Actual</th><th>Estimate</th><th>Sample time (UTC)</th><th>Advisory</th><th>Diagnostic advisory</th></tr></thead><tbody>${DGA_CATALOG.map((c,i)=>{const r=m.latest.get(m.mapping[c[0]]);return `${i===0||DGA_CATALOG[i-1][6]!==c[6]?`<tr class="dga-group"><th colspan="6">${esc(c[6])}</th></tr>`:''}<tr><td>${esc(c[1])}<small>${esc(m.mapping[c[0]]||'Not mapped')}</small></td><td class="numeric">${r?fmt(r.actual):'—'} <small>${esc(r?.unit||c[5])}</small></td><td class="numeric">${r?fmt(r.predicted):'—'}</td><td>${r?dateLabel(r.timestamp):'No sample yet'}</td><td>${r?indicatorBadge(r):'—'}</td><td>${r?indicatorBadge(r,true):'—'}</td></tr>`}).join('')}</tbody></table></div></section>
-  <details class="note-panel dga-method"><summary>Method &amp; sources</summary><p>Every chart follows the same replay clock and uses simultaneous concentrations in ppm. Each triangle normalizes its three gases; pentagons use the five-gas area centroid. Missing, negative, duplicate and zero-total samples are excluded. Shared boundaries show adjacent regions. Pentagon zero readings require laboratory-approved detection-limit values.</p><p>Triangles 1, 4, 5 and both pentagons are mineral-oil main-tank methods. Triangles 4 and 5 retain their simultaneous Triangle 1 applicability checks. Triangle 2 is a comparison for conventional oil-arcing LTC compartments; ethylene and acetylene both below 10 ppm prevent classification. Triangle 3 shows all four fluid-specific comparisons; silicone, MIDEL and BIOTEMP T2/T3 limits are extrapolated. No compartment or fluid is inferred from gas concentrations.</p><p>Regions suggest fault type, not severity or proof of a fault. ND means not determined. C indicates possible paper carbonization; investigate carbon oxides and furans. Temperature ranges are categories, not measured temperatures.</p><div class="dga-legend">${[...new Map(m.views.flatMap(v=>v.method.zones).map(z=>[z.id+'|'+z.name,z])).values()].map(z=>`<span><i style="background:${z.color}"></i><b>${esc(z.id)}</b> ${esc(z.name)}</span>`).join('')}</div><p>Reference edition: <a href="${DUVAL_REFERENCE}" target="_blank" rel="noopener">IEEE reference workbooks (2016)</a>; <a href="https://doi.org/10.1109/MEI.2008.4665347" target="_blank" rel="noopener">Duval’s triangle paper</a>. The <a href="https://grouper.ieee.org/groups/transformers/subcommittees/fluids/C57.104/S25-C57.104-MtgPresentation.pdf" target="_blank" rel="noopener">2025 IEEE correction examples</a> were checked against the workbooks. <a href="duval-methods.html" target="_blank" rel="noopener">Implementation &amp; validation notes</a>.</p></details>`;
+  <details class="note-panel dga-method"><summary>Method &amp; sources</summary><p>Every chart follows the same replay clock and uses simultaneous concentrations in ppm. Each triangle normalizes its three gases; pentagons use the five-gas area centroid. Missing, negative, duplicate and zero-total samples are excluded. Shared boundaries show adjacent regions. Pentagon zero readings require laboratory-approved detection-limit values.</p><p>Triangles 1, 4, 5 and both pentagons are mineral-oil main-tank methods. Triangles 4 and 5 retain their simultaneous Triangle 1 applicability checks.</p><p>Regions suggest fault type, not severity or proof of a fault. ND means not determined. C indicates possible paper carbonization; investigate carbon oxides and furans. Temperature ranges are categories, not measured temperatures.</p><div class="dga-legend">${[...new Map(m.views.flatMap(v=>v.method.zones).map(z=>[z.id+'|'+z.name,z])).values()].map(z=>`<span><i style="background:${z.color}"></i><b>${esc(z.id)}</b> ${esc(z.name)}</span>`).join('')}</div><p>Reference edition: <a href="${DUVAL_REFERENCE}" target="_blank" rel="noopener">IEEE reference workbooks (2016)</a>; <a href="https://doi.org/10.1109/MEI.2008.4665347" target="_blank" rel="noopener">Duval’s triangle paper</a>. The <a href="https://grouper.ieee.org/groups/transformers/subcommittees/fluids/C57.104/S25-C57.104-MtgPresentation.pdf" target="_blank" rel="noopener">2025 IEEE correction examples</a> were checked against the workbooks. <a href="duval-methods.html" target="_blank" rel="noopener">Implementation &amp; validation notes</a>.</p></details>`;
 }
 
 function dgaTrendChart(m){

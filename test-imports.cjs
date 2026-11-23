@@ -53,7 +53,7 @@ assert.equal(run("esc('<img onerror=alert(1)>')"),'&lt;img onerror=alert(1)&gt;'
 console.log('PASS: real XLSX template parsing, all three import types, persistence, sample clearing, duplicate validation, blank vs zero, invalid dates/components, mapping, historical snapshots and escaping.');
 
 run("stamp=''; component='cooling';");
-assert.equal(run("statusFor('cooling')"),'watch','Legacy critical score must not drive the overlay');
+assert.equal(run("statusFor('cooling')"),'normal','Legacy critical score must not drive the overlay');
 assert.ok(!run('overview()').includes('Equipment health'));
 assert.ok(!run('componentPanel()').includes('/ 100'));
 assert.ok(!run('libraryPage()').includes('Component health'));

@@ -22,7 +22,7 @@ function resize(){
   camera.updateProjectionMatrix();invalidate();
 }
 function message(text){const el=document.querySelector('#model-message');if(el)el.textContent=text;}
-function selectionMessage(){message(`Orthographic · ${state.names[state.component]} selected`);}
+function selectionMessage(){message('');}
 function applyState(){
   if(!model||!state)return;
   model.traverse(obj=>{
@@ -102,7 +102,7 @@ function initialize(){
     if(e.key==='ArrowUp')s.phi=Math.max(.1,s.phi-.13);if(e.key==='ArrowDown')s.phi=Math.min(Math.PI*.49,s.phi+.13);
     camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(s));controls.update();invalidate();
   });
-  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();failed=true;message('3D graphics paused. Reload to retry, or use the 2D view.');});
+  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();failed=true;message('3D paused. Reload or use 2D view.');});
   observer=new ResizeObserver(resize);
   new GLTFLoader().load('./models/transformer.glb?v=singlephase1',gltf=>{
     model=gltf.scene;
@@ -115,13 +115,13 @@ function initialize(){
       }
     }
     scene.add(model);selectionMessage();applyState();resize();
-  },undefined,()=>{failed=true;message('The 3D model could not load. Use the 2D view or reload to retry.');});
+  },undefined,()=>{failed=true;message('Model unavailable. Reload or use 2D view.');});
 }
 window.Transformer3D={
   mount(next){
     state=next;tooltip.dataset.component='';host=document.querySelector('#model-canvas');if(!host)return;
     try{if(!renderer&&!failed)initialize();}catch(error){failed=true;console.error(error);}
-    if(failed){message('3D graphics are unavailable. Use the 2D view below.');return;}
+    if(failed){message('3D unavailable. Use 2D view.');return;}
     host.append(viewport);observer.observe(host);
     // Keyboard users can preview the same card by focusing a component button.
     document.querySelectorAll('.model-component').forEach(button=>{

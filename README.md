@@ -1,12 +1,18 @@
 # Transformer Twin
 
-Static hydro generation transformer prototype. Serve `dist/` with any HTTP server (for example `python3 -m http.server 4173 --directory dist`). No build step or backend required.
+Static hydro generation transformer prototype. Serve `dist/` with any HTTP server (for example `python3 -m http.server 4173 --directory dist`). The monitoring views need no backend. Shared maintenance folders use Netlify Functions and Netlify Blobs; deploy with the project’s Netlify configuration to enable them.
+
+## Development
+
+Use Node.js 22.13.0 or later. Install the locked dependencies with `npm ci`, then run all regression suites with `npm test`. On macOS, `Preview 3D.command` starts the local static preview. See [NETLIFY.md](NETLIFY.md) for the protected maintenance service and deployment setup.
+
+`dist/` contains the maintained application source and vendored browser dependencies; it is required in Git and is not disposable build output. `models/` contains the editable Blender model and its generator. Keep the vendor license files and `test-duval-reference.json` with the project. Local dependencies, Netlify state, environment files, and editor/OS artifacts are ignored.
 
 Includes interactive SVG transformer, actual/predicted trends, source advisory highlighting, advisories, maintenance records, Excel/CSV imports with column mapping and validation, data export, and local browser persistence.
 
 The primary import accepts the described GE SmartSignal offline export: one worksheet per tag, with Timestamp, Actual, Estimate, Advisory Indication and Diagnostic Advisory Indication. Each worksheet name is the tag ID. Configure its component, optional display name/unit, header row and column mapping, then apply all selected tags in one operation. Residual and smoothed-residual columns are ignored. Extra worksheets can be excluded. The example workbook is synthetic, based on the user's description, not an actual SmartSignal export.
 
-Both indication columns contain text. Non-empty messages are displayed verbatim and highlight the associated component. Blank cells show “None supplied”; unmapped columns remain unknown. Diagnostic text is not interpreted or converted into severity or a numerical health score. No predictive inference is performed on SmartSignal indications. The DGA page separately calculates Duval Triangle 1, 4 and 5 and Pentagon 1–2 regions for the main transformer oil tank. Example strings include “LOW_TAG fired for MCA_U02_GenAirCW_Flow_00” and “Sensor Failure - Gen CW Flow”.
+Both indication columns contain text. Non-empty messages are displayed verbatim and highlight the associated component. Blank cells show “None supplied”; unmapped columns remain unknown. Diagnostic text is not interpreted or converted into severity or a numerical health score. No predictive inference is performed on SmartSignal indications. The DGA page separately calculates Duval Triangle 1, 4 and 5 and Pentagon 1 regions for the main transformer oil tank. Example strings include “LOW_TAG fired for MCA_U02_GenAirCW_Flow_00” and “Sensor Failure - Gen CW Flow”.
 
 Choose ISO, month/day/year, or day/month/year for textual timestamps and a fixed timezone offset for timestamps without one. Excel date serials respect the workbook's 1900/1904 epoch. Explicit timestamp offsets are preserved. Fixed offsets do not adjust for DST; split exports spanning a change or use explicit offsets. All display timestamps are UTC. The actual export's precise timestamp format has not been provided.
 
@@ -14,11 +20,11 @@ Use “Maintenance template” for maintenance document records, including engin
 
 Checks: `node test-imports.cjs` and `node test-smartsignal.cjs`. These cover parsing a round-tripped XLSX workbook, column mapping, independent advisory text, missing vs blank indications, zero readings, timestamps, duplicates, browser-state persistence logic, and preservation of maintenance/health data. Browser QA also covers the example workbook's full import and reload.
 
-Maintenance instructions are imported as text in the Maintenance sheet, not as PDF/Word attachments. The model and asset metadata are illustrative and need adaptation to the actual transformer. Browser storage is specific to the browser and site origin; this prototype has no shared database or live connections. No telemetry or uploaded content is sent to a server. Interface fonts are loaded from Google Fonts with system fallbacks.
+Maintenance folders can contain original PDF, Word, spreadsheet, image and text files. The Maintenance worksheet remains available for legacy browser-local text records. The model and asset metadata are illustrative and need adaptation to the actual transformer. Browser storage is specific to the browser and site origin; sensor imports have no shared database or live connections. Maintenance folder uploads are shared through the protected Netlify document service; sensor workbooks remain browser-local. Interface fonts are loaded from Google Fonts with system fallbacks.
 
 Excel support uses vendored SheetJS CE 0.20.3, Apache-2.0 license. https://docs.sheetjs.com/
 
-## Transformer 4, Phase A
+## Transformer 1, Phase A
 
 The starting catalog has 21 measurements: generator volts (Phase A), generator current, cooling-water inlet temperature, transformer cooling-water flow, Phase A winding temperature; water in oil, hydrogen, acetylene, carbon dioxide, carbon monoxide, total combustible gas, ethane, ethylene, methane, nitrogen and oxygen concentrations; and acetylene, ethane, ethylene, methane and hydrogen concentration rates of change. The dashboard represents one single-phase transformer.
 
@@ -26,7 +32,7 @@ Sample workbook IDs are placeholders, not confirmed historian tag names. Sample 
 
 ## DGA monitoring and workbook replay
 
-The DGA monitoring tab includes all 11 concentration channels and five rate-of-change channels. Import a workbook, open DGA monitoring, check gas tag mapping, then expand the discreet Demo controls section in the sidebar and press Play. Playback starts from the beginning when positioned at the end; Restart pauses at the first sample. Pause, scrub and speed selection (1×, 10×, 60×, 600×, 3,600×, 86,400×) use elapsed wall-clock time. The default 3,600× advances one recorded hour per second. The sample values, Duval point, trajectory, source messages and selected gas trend follow the same replay clock. Switching pages, importing data or editing tag mapping stops playback. Opening the trend selector pauses replay so the control stays usable.
+The DGA monitoring tab includes all 11 concentration channels and five rate-of-change channels. Import a workbook, open DGA monitoring, check gas tag mapping, then expand the discreet Demo controls section in the sidebar and press Play. Playback starts from the beginning when positioned at the end; Restart pauses at the first sample. Pause, scrub and speed selection (1×, 10×, 60×, 600×, 3,600×, 86,400×) use elapsed wall-clock time. The default 3,600× advances one recorded hour per second. The sample values, Duval point, trajectory, source messages and selected gas trend follow the same replay clock. Switching pages, importing data or editing tag mapping stops playback. All gas trends are shown in one full-width column and follow the replay clock.
 
 This is workbook replay, not an online connection or interpolated simulation. The latest measurements are held until newer records arrive; their timestamps remain visible. Browser-local gas channel mapping supports custom historian tag IDs, prevents reuse of one tag for multiple channels and is persisted with the data. Unknown or ambiguous channels require explicit mapping.
 
@@ -37,7 +43,7 @@ Zone geometry: [International Journal of Electrical and Power Engineering 4(3), 
 
 ## Additional Duval methods
 
-DGA monitoring displays Triangles 1, 4 and 5 and Pentagons 1 and 2 together for the mineral-oil main transformer tank, with a shared gas concentration strip and replay clock. There is no diagram or sample-source selector. Tap-changer and alternative-fluid comparisons are omitted from this asset dashboard. Triangles 4/5 require applicable, simultaneous Triangle 1 results. Every chart shows its own sample timestamp, region, percentages and history. Classification series are cached between replay ticks and invalidated when imported data or tag mappings change.
+DGA monitoring displays Triangles 1, 4 and 5 and Pentagon 1 together for the mineral-oil main transformer tank, with a shared gas concentration strip and replay clock. There is no diagram or sample-source selector. Tap-changer and alternative-fluid comparisons are omitted from this asset dashboard. Triangles 4/5 require applicable, simultaneous Triangle 1 results. Every chart shows its own sample timestamp, region, percentages and history. Classification series are cached between replay ticks and invalidated when imported data or tag mappings change.
 
 See [DUVAL-METHODS.md](DUVAL-METHODS.md) for source editions, source inconsistencies, applicability, zero/detection-limit handling and verification. Run `node test-duval-methods.cjs` in addition to the existing tests. The implementation uses the IEEE-distributed 2016 workbook edition and explicitly reports shared boundaries. It does not claim to implement every proposed later revision.
 
@@ -66,3 +72,60 @@ Additional regression suite: `node test-model-tags.cjs` covers snapshot cutoffs,
 The illustrative model now has two tall high-voltage bushings marked H1/H2 and two shorter low-voltage bushings marked X1/X2, rather than an ambiguous three-terminal arrangement. The 2D fallback uses the same terminal pairs. Each terminal is a named child of the existing `bushings` component, with `terminalId` and `voltageSide` glTF extras; tag mappings, hover readings and component selection remain shared. Older imports using the label “HV bushings” are still accepted.
 
 This is a generic single-phase two-winding arrangement, not a confirmed as-built terminal/neutral arrangement for the installed Federal Pioneer unit. Terminal convention reference: [Hammond Power Solutions — subtractive polarity](https://americas.hammondpowersolutions.com/resources/faq/definition/what-is-subtractive-polarity). The GLB regression check verifies exactly H1/H2 as HV and X1/X2 as LV, their visible markings and their component ancestry.
+
+## Shared maintenance folders
+
+In Maintenance library, choose Upload folder, select the pre-organized directory,
+and review the upload. Original filenames and relative folder paths are retained;
+empty directories and operating-system metadata files are omitted. There is no
+required category naming scheme. Standards, instructions, inspection reports and
+history can remain in the folders you already use.
+
+Select a folder or file, check one or more components, then Save assignments.
+Folder assignments apply to all current files in that folder and its descendants.
+New files start unassigned. Same-path replacements retain existing assignments;
+replacement requires a review, and files absent from a later upload are retained.
+Tank and insulating oil are separate assignment targets. The model’s Main tank &
+oil document shortcut includes both. Component shortcuts open a filtered file tree.
+
+Files and assignments are shared for everyone who knows the site login. Sensor
+workbooks and legacy spreadsheet text records continue to stay browser-local.
+There are no separate viewer/editor roles in this prototype. The initial hosted
+library is empty; no real maintenance documents or QA fixtures are deployed.
+
+PDF, common raster-image and text previews are supported. Word, Excel and other
+formats can be downloaded to open in their own applications. Text previews show
+up to 2 MB. Original documents are retained without parsing or rewriting content.
+
+Limits: 50 MB/file, 200 MB and 1,000 files/upload, 2,000 files/library. Uploads use
+2 MB parts. The folder appears only after every part has been validated; failure
+or cancellation leaves the published index unchanged. Concurrent metadata updates
+use conditional writes. The same password is checked independently in the server
+function, including direct function URLs. API responses and files are not cached.
+
+Shared data uses the site-scoped, strongly consistent `maintenance-library-v1`
+Netlify Blobs store and survives app redeploys. Partially staged uploads after a
+closed browser and superseded file blobs may require administrator cleanup; no
+automatic deletion or version-history UI is included. Folder uploads consume the
+existing Free plan’s request, storage/bandwidth and function allowances.
+
+Run `node test-maintenance.mjs` for folder validation, authorization, chunked
+uploads, atomic publication, replacements, concurrent assignments and UI escaping.
+Local browser QA uses synthetic files and an in-memory copy of the service, never
+real documents in the production library.
+
+## Tag trend dashboard
+
+The overview shows every imported tag in a single column of full-width charts, with actual and estimated values over a shared 24-hour window. DGA monitoring likewise shows all gas channels without a trend dropdown. Model tag buttons scroll to the corresponding overview chart.
+
+## DGA alarm settings
+
+Settings provides optional upper warning and alarm thresholds for mapped DGA concentration and rate tags. Blank limits are off; enabled readings trigger at or above the threshold. Alarm must exceed warning when both are provided. Configuration is saved separately in this browser by tag ID and unit; changed units require new limits. Local statuses appear on tag charts and the DGA readings table at the selected snapshot/replay time, independently of source advisories and Duval classification. No thresholds are supplied by default. Run `node test-alarm-settings.cjs` to check validation, evaluation and persistence.
+
+## Duval movement over time
+
+Each diagram colours its trajectory by sample time (blue earlier, orange later), with explicit date endpoints. The trail uses the latest 1,000 samples at or before replay time and never connects across invalid samples. Selected samples include absolute gas concentrations. The classification-change timeline includes unavailable/not-applicable intervals; selecting a transition pauses replay and synchronizes all diagrams and readings. Colours indicate time, not severity. Run `node test-duval-movement.cjs`.
+
+## Correlations
+
+The Correlations tab displays Pearson correlations between actual readings for every imported tag over a user-selected start/end date range (both full days included in UTC), capped at the shared snapshot during replay. Exact timestamps are matched pairwise; invalid and duplicate readings are excluded, with at least three pairs and nonzero variance required. Cells show r; hover or select for matched count and a scatter plot. Playback advances one recorded timestamp per second and stops when leaving the tab. This is imported-data replay, not a live historian feed. Run `node test-correlations.cjs`.

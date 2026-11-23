@@ -27,7 +27,7 @@ assert.equal(run('Object.values(dgaMapping()).filter(Boolean).length'),16);
 assert.equal(run('dgaModel().series.length'),25);
 assert.equal(run('dgaModel().sample.zones[0]'),'T2');
 assert.ok(run('dgaControls().includes("Replay position")'));
-assert.ok(run('dgaFrame(dgaModel()).includes("All DGA monitors")'));
+assert.ok(run('dgaFrame(dgaModel()).includes("DGA readings")'));
 run('dgaTime=dgaModel().start');assert.equal(run('dgaModel().sample.time'),run('dgaTime'));
 run('dgaTime+=1800000');assert.equal(run('dgaModel().sample.time'),run('dgaTime-1800000'));
 run("data.sensors=[];dgaTime=null");assert.equal(run('dgaModel().series.length'),0);assert.ok(run('dgaFrame(dgaModel()).includes("Unavailable")'));

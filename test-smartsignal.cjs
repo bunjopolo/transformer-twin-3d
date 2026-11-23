@@ -82,3 +82,21 @@ assert.equal(run("validateSmart(pending).errors.length"),0);
 assert.equal(run("TAG_CATALOG.filter(r=>r[6]==='DGA concentrations').length"),11);
 assert.equal(run("TAG_CATALOG.filter(r=>r[6]==='DGA rates of change').length"),5);
 console.log("PASS: Phase A catalog and 21-sheet example workbook mappings.");
+
+// Combine the presentation while preserving both imported source fields.
+run(`combinedRow={tag:'COMBINED',component:'windings',timestamp:'2026-11-16T16:00:00.000Z',indicationMode:'text',advisoryActive:true,diagnosticActive:true,advisoryIndication:'High temperature',diagnosticAdvisoryIndication:'Inspect <sensor>',advisory:'Old cached display'};`);
+assert.equal(run('advisoryText(combinedRow)'), 'High temperature\nInspect <sensor>');
+assert.ok(run('combinedAdvisories(combinedRow)').includes('Inspect &lt;sensor&gt;'));
+assert.equal(run("advisoryText({...combinedRow,diagnosticAdvisoryIndication:'High temperature'})"),'High temperature');
+assert.equal(run('advisoryText({...combinedRow,advisoryActive:false})'),'Inspect <sensor>');
+assert.ok(run('combinedAdvisories({advisoryActive:false,diagnosticActive:false})').includes('None supplied'));
+assert.ok(run('combinedAdvisories({advisoryActive:false,diagnosticActive:null})').includes('Not supplied'));
+assert.equal(run("advisoryText({advisory:'Legacy message'})"),'Legacy message');
+assert.equal(run('signalText({advisoryActive:true,diagnosticActive:true})'),'Advisory active. No message supplied.');
+run("data.sensors=[combinedRow];stamp='';component='windings';");
+assert.equal(run("statusFor('windings')"),'watch');
+assert.equal((run('overview()').match(/class="advisory-item"/g)||[]).length,1,'Count an affected tag once');
+assert.ok(run('componentPanel()').includes('Inspect &lt;sensor&gt;'));
+assert.ok(!run('sensorTable()').includes('DIAGNOSTIC ADVISORY INDICATION'));
+assert.equal(run('combinedRow.diagnosticAdvisoryIndication'),'Inspect <sensor>');
+console.log('PASS: combined messages, diagnostic-only advisories, deduplication, escaped text, missing fields, legacy data and one entry per tag.');

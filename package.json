@@ -1,0 +1,13 @@
+{
+  "name": "private-maintenance-demo",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.9"
+  },
+  "scripts": {
+    "test": "node --test test-*.cjs test-*.mjs"
+  }
+}

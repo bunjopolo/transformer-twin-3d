@@ -1,0 +1,10 @@
+.netlify/
+node_modules/
+.env
+.env.*
+.DS_Store
+._*
+__pycache__/
+*.py[cod]
+*.blend[0-9]*
+npm-debug.log*

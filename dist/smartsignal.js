@@ -43,11 +43,16 @@ function indicatorState(value, config) {
   return null;
 }
 function signalText(r) {
-  if(r.indicationMode==='text')return [r.advisoryActive===true?'Advisory: '+r.advisoryIndication:'',r.diagnosticActive===true?'Diagnostic advisory: '+r.diagnosticAdvisoryIndication:''].filter(Boolean).join('\n');
-  const active=[];
-  if(r.advisoryActive===true)active.push('Advisory indication active');
-  if(r.diagnosticActive===true)active.push('Diagnostic advisory indication active');
-  return active.length?active.join(' · ')+'. No diagnostic text was supplied.':'';
+  if(r.indicationMode==='text')return [...new Set([r.advisoryActive===true?r.advisoryIndication:'',r.diagnosticActive===true?r.diagnosticAdvisoryIndication:''].filter(v=>String(v??'').trim()))].join('\n');
+  return r.advisoryActive===true||r.diagnosticActive===true?'Advisory active. No message supplied.':'';
+}
+function advisoryText(r) {
+  return r.indicationMode==='text'||r.signalFormat==='SmartSignal'?signalText(r):r.advisory||signalText(r);
+}
+function combinedAdvisories(r) {
+  const text=advisoryText(r);
+  if(text)return `<span class="source-indication advisory-text">${esc(text)}</span>`;
+  return `<span class="muted">${r.advisoryActive===false&&r.diagnosticActive===false?'None supplied':'Not supplied'}</span>`;
 }
 function indicatorBadge(r, diagnostic=false) {
   const key=diagnostic?'diagnosticAdvisoryIndication':'advisoryIndication';
@@ -112,26 +117,26 @@ function validateSmart(p) {
 }
 function smartStage() {
   const p=pending,s=p.sheets[p.selected];
-  return `<div class="import-alert"><strong>${esc(p.file)}</strong><br>SmartSignal export · One worksheet = one tag. Residual columns are ignored.</div>
-  <div class="toolbar smart-toolbar"><button class="link-button" id="switch-flat">Use maintenance / flat-table import</button><button class="link-button" id="cancel-smart">Cancel</button></div>
-  <h3 class="import-step">1. Link worksheets to transformer components</h3>
+  return `<div class="import-alert"><strong>${esc(p.file)}</strong></div>
+  <div class="toolbar smart-toolbar"><button class="link-button" id="switch-flat">Maintenance / table import</button><button class="link-button" id="cancel-smart">Cancel</button></div>
+  <h3 class="import-step">1. Assign components</h3>
   <div class="table-wrap smart-sheets"><table><thead><tr><th>IMPORT</th><th>TAG / WORKSHEET</th><th>COMPONENT</th><th>SETUP</th></tr></thead><tbody>${p.sheets.map((sheet,i)=>`<tr class="${i===p.selected?'selected-sheet':''}"><td><input type="checkbox" aria-label="Include ${esc(sheet.sheet)}" data-include="${i}" ${sheet.included?'checked':''}></td><td><span class="table-tag">${esc(sheet.sheet)}</span><small>${sheet.records.length} rows</small></td><td><select aria-label="Component for ${esc(sheet.sheet)}" data-smart-component="${i}"><option value="">Choose component…</option>${componentOptions(sheet.component)}</select></td><td><button class="btn" data-configure="${i}" aria-label="Configure ${esc(sheet.sheet)}">${i===p.selected?'Editing':'Configure'}</button></td></tr>`).join('')}</tbody></table></div>
-  <h3 class="import-step">2. Map columns for <span class="table-tag">${esc(s.sheet)}</span></h3>
+  <h3 class="import-step">2. Columns · <span class="table-tag">${esc(s.sheet)}</span></h3>
   <div class="mapping"><label>Header row<input id="smart-header" type="number" min="1" max="30" value="${s.headerRow}"></label><label>Display name<input id="smart-name" value="${esc(s.name)}"></label><label>Unit (optional)<input id="smart-unit" value="${esc(s.unit)}" placeholder="e.g. °C"></label></div>
   <div class="mapping">${Object.entries(SMART_FIELDS).map(([f,field])=>`<label>${field.label}${['timestamp','actual','predicted'].includes(f)?' *':''}<select data-smart-map="${f}"><option value="-1">${f.includes('Indication')?'Not supplied → Unknown':'— Select column —'}</option>${s.headers.map((h,i)=>`<option value="${i}" ${s.map[f]===i?'selected':''}>${XLSX.utils.encode_col(i)} · ${esc(h||'(blank header)')}</option>`).join('')}</select></label>`).join('')}</div>
-  <button class="btn" id="copy-smart-map">Use these column names for other included tags</button>
-  <h3 class="import-step">3. Source messages and timestamps</h3>
-  <div class="import-alert"><strong>Advisory columns contain text messages</strong><br>Non-empty text is shown verbatim and highlights the linked component. Blank cells mean no message was supplied. </div>
+  <button class="btn" id="copy-smart-map">Apply mapping to included tags</button>
+  <h3 class="import-step">3. Timestamps</h3>
+
   <div class="mapping"><label>Text date order<select id="smart-date-order">${[['ISO','ISO: YYYY-MM-DD'],['MDY','Month / day / year'],['DMY','Day / month / year']].map(([v,t])=>`<option value="${v}" ${p.dateOrder===v?'selected':''}>${t}</option>`).join('')}</select></label><label>Timezone for dates without an offset<select id="smart-offset">${[[-480,'UTC−08:00 (fixed offset)'],[-420,'UTC−07:00 (fixed offset)'],[0,'UTC+00:00'],[60,'UTC+01:00'],[120,'UTC+02:00']].map(([v,t])=>`<option value="${v}" ${Number(p.offset)===v?'selected':''}>${t}</option>`).join('')}</select></label></div>
-  <p class="muted">Explicit timestamp offsets are preserved. Fixed offsets do not adjust for daylight saving time; split exports spanning an offset change or use timestamps containing offsets.</p>
+  <p class="muted">Explicit offsets take precedence. Fixed offsets exclude DST; split exports at offset changes.</p>
   <div id="smart-validation">${smartValidationView()}</div>`;
 }
 function smartValidationView(){
   const v=validateSmart(pending),preview=v.rows.filter(r=>r.tag===pending.sheets[pending.selected].sheet).slice(0,3);
-  return `<h3 class="import-step">4. Review and import the workbook</h3><div class="import-alert ${v.errors.length?'error':''}"><strong>${v.errors.length?`${v.errors.length} issues to resolve`:`✓ ${v.rows.length} readings across ${v.summary.length} tags ready`}</strong>${v.errors.length?'<br>'+v.errors.slice(0,8).map(esc).join('<br>'):''}${v.errors.length>8?'<br>More issues are present in the selected sheets.':''}<br>${data.demo?'The first import clears all demonstration records.':'This replaces all sensor readings. Imported maintenance records are retained.'}</div>
+  return `<h3 class="import-step">4. Review</h3><div class="import-alert ${v.errors.length?'error':''}"><strong>${v.errors.length?`${v.errors.length} issues`:`✓ ${v.rows.length} readings · ${v.summary.length} tags`}</strong>${v.errors.length?'<br>'+v.errors.slice(0,8).map(esc).join('<br>'):''}${v.errors.length>8?'<br>More issues are present in the selected sheets.':''}<br>${data.demo?'Clears all demo records.':'Replaces all sensor readings; retains maintenance records.'}</div>
   ${v.warnings.length?`<div class="import-alert">${v.warnings.slice(0,8).map(esc).join('<br>')}</div>`:''}
-  <div class="table-wrap import-preview"><table><thead><tr><th>TIMESTAMP (UTC)</th><th>ACTUAL</th><th>ESTIMATE</th><th>ADVISORY INDICATION</th><th>DIAGNOSTIC ADVISORY INDICATION</th></tr></thead><tbody>${preview.map(r=>`<tr><td>${esc(r.timestamp)}</td><td>${fmt(r.actual)}</td><td>${fmt(r.predicted)}</td><td>${indicatorBadge(r)}</td><td>${indicatorBadge(r,true)}</td></tr>`).join('')}</tbody></table></div><p class="muted">Preview: up to 3 readings for the configured tag. </p>
-  <button class="btn primary" id="apply-smart" ${v.errors.length?'disabled':''}>Import ${v.summary.length} selected tags →</button>`;
+  <div class="table-wrap import-preview"><table><thead><tr><th>TIMESTAMP (UTC)</th><th>ACTUAL</th><th>ESTIMATE</th><th>ADVISORIES</th></tr></thead><tbody>${preview.map(r=>`<tr><td>${esc(r.timestamp)}</td><td>${fmt(r.actual)}</td><td>${fmt(r.predicted)}</td><td>${combinedAdvisories(r)}</td></tr>`).join('')}</tbody></table></div><p class="muted">Preview: first 3 readings.</p>
+  <button class="btn primary" id="apply-smart" ${v.errors.length?'disabled':''}>Import ${v.summary.length} tags</button>`;
 }
 function applySmart(){
   const p=pending,v=validateSmart(p);if(v.errors.length)return;
@@ -161,7 +166,7 @@ function bindSmart(){
 function smartExampleBook(){
   const book=XLSX.utils.book_new(),sample=demoData();
   for(const tag of [...new Set(sample.sensors.map(r=>r.tag))]){
-    const rows=sample.sensors.filter(r=>r.tag===tag).map(r=>({'Timestamp':r.timestamp,'Actual':r.actual,'Estimate':r.predicted,'Residual':+(r.actual-r.predicted).toFixed(2),'Residual Smoothed':0,'Advisory Indication':r.severity==='watch'?`${tag==='CW-FLOW'?'LOW':'HIGH'}_TAG fired for ${tag}`:'','Diagnostic Advisory Indication':r.tag==='CW-FLOW'&&r.severity==='watch'?'Sensor Failure - Transformer cooling water flow':''}));
+    const rows=sample.sensors.filter(r=>r.tag===tag).map(r=>({'Timestamp':r.timestamp,'Actual':r.actual,'Estimate':r.predicted,'Residual':+(r.actual-r.predicted).toFixed(2),'Residual Smoothed':0,'Advisory Indication':r.advisoryIndication,'Diagnostic Advisory Indication':r.diagnosticAdvisoryIndication}));
     const sheet=XLSX.utils.json_to_sheet(rows);sheet['!cols']=[{wch:28},...Array.from({length:6},()=>({wch:25}))];XLSX.utils.book_append_sheet(book,sheet,tag);
   }
   return book;

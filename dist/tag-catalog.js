@@ -1,5 +1,5 @@
 'use strict';
-// Starting tag list for Transformer 4, Phase A. IDs are demo workbook names.
+// Starting tag list for Transformer 1, Phase A. IDs are demo workbook names.
 const TAG_CATALOG = [
   ['GEN-V-A','Generator volts — Phase A','windings',16.1,16,'kV','Electrical'],
   ['GEN-I','Generator current','windings',9500,9480,'A','Electrical'],
